@@ -9,13 +9,13 @@ Here we propose **SLIDE**, **S**equence-free **L**andscape **I**nference for **D
 
 ## 📂 Repository Structure
 
-SLIDE/
-├── scripts/ # Scripts to produce the files (which can be downloaded from XXX)
-├── plot_data/ # Minimal data required for producing plots in ruggedness_figures_plots.ipynb
-├── landscape_arrays/ # Scripts for running analyses
-├── direvo_functions.py # Directed evolution functions
-├── selection_function_library.py # Selection functions
-├── ruggedness_functions.py # Functions for ruggedness analysis
-├── ruggedness_figures_data_processing.ipynb # Pre-processing to produce data in plot_data/
-├── ruggedness_figures_plots.py # Code for producing plots
-└── README.md # This file
+SLIDE/\
+├── scripts/ # Scripts to produce the files (which can be downloaded from 10.5281/zenodo.16849761)\
+├── plot_data/ # Minimal data required for producing plots in ruggedness_figures_plots.ipynb\
+├── landscape_arrays/ # Scripts for running analyses\
+├── direvo_functions.py # Directed evolution functions\
+├── selection_function_library.py # Selection functions\
+├── ruggedness_functions.py # Functions for ruggedness analysis\
+├── ruggedness_figures_data_processing.ipynb # Pre-processing to produce data in plot_data/\
+├── ruggedness_figures_plots.py # Code for producing plots\
+└── README.md # This file\
