@@ -17,6 +17,7 @@ import pandas as pd
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.7"
 
 # The DE function
+
 def directedEvolution(rng,
                       selection_strategy, 
                       selection_params, 
@@ -76,29 +77,7 @@ def directedEvolution(rng,
  
     return results
 
-
-# Measure decay rate function.
-def get_single_decay_rate(decay_data, mut = 0.1, num_steps = 25):
-
-    num_params = 2
-    decay_data = decay_data/decay_data[0]
-    def model_function(x,*params):
-        mut_curves = np.exp(-1.0*mut*x[:,None]*np.array(params)[None,:])
-        weights = np.linspace(0.1, 0.9, num_params)
-        weights = np.ones(num_params)
-        weights = weights / weights.sum()
-        sum_curves = np.sum(mut_curves * weights[None,:], axis = 1)
-        return sum_curves
-    
-    steps = np.linspace(0,num_steps-1,num_steps)
-
-    init_guess = np.linspace(0.1, 0.9, num_params)
-    params, _ = curve_fit(model_function, steps, decay_data,p0=init_guess, maxfev= 5000)
-
-    mean_params = np.mean(params)
-    return mean_params
-
-### Seb ruggedness measurement functions
+### Ruggedness measurement functions
 
 def get_lin_coeffs(landscape_arr):
     num_dims = len(landscape_arr.shape)
