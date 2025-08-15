@@ -12,13 +12,13 @@ Here we propose **SLIDE**, **S**equence-free **L**andscape **I**nference for **D
 SLIDE/\
 ├── scripts/ # Scripts to produce the SLIDE_data files (which can be downloaded from Zenodo: 10.5281/zenodo.16849761)\
 ├── plot_data/ # Minimal data required for producing plots in ruggedness_figures_plots.ipynb\
-├── landscape_arrays/ # Scripts for running analyses\
+├── landscape_arrays/ # Empirical landscape arrays\
 ├── direvo_functions.py # Directed evolution functions\
 ├── selection_function_library.py # Selection functions\
 ├── ruggedness_functions.py # Functions for ruggedness analysis\
 ├── ruggedness_figures_data_processing.ipynb # Pre-processing to produce data in plot_data/\
 ├── ruggedness_figures_plots.ipynb # Code for producing plots\
-└── README.md # This file\
+└── README.md # This file
 
 ## Instructions
 
