@@ -23,7 +23,7 @@ SLIDE/\
 ## Instructions
 
 - Plots can be reproduced by running ruggedness_figures_plots.ipynb.
-- More in-depth analysis can be found in ruggedness_figures_data_processing.ipynb, which requires SLIDE_data files (download from Zenodo: 10.5281/zenodo.16849761).
+- More in-depth analysis can be found in ruggedness_figures_data_processing.ipynb, which requires SLIDE_data files (download from Zenodo: 10.5281/zenodo.16849761, or generate from .py files in scripts/).
 
 ### Note: This code requires Jax. 
 Please follow the instructions at https://jax.readthedocs.io/en/latest/installation.html to install.
