@@ -24,3 +24,9 @@ htmlcov/
 
 # ---- Notebook artifacts ----
 .ipynb_checkpoints/
+
+# ---- Local machine config (do not commit) ----
+slide_paths.json
+
+# ---- Large data (downloaded/generated; do not commit) ----
+SLIDE_data/

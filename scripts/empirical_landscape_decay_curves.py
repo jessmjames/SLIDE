@@ -5,12 +5,19 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-from direvo_functions import *
-import selection_function_library as slct
 import tqdm
 
-# Define the SLIDE_data path
-slide_data_dir = "/home/jess/Documents/SLIDE_data"
+# Ensure repo root is on sys.path when executed as a script
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from direvo_functions import *
+import selection_function_library as slct
+from slide_config import get_slide_data_dir
+
+# Resolve SLIDE_data path via env var / local untracked config / sensible default
+slide_data_dir = str(get_slide_data_dir())
 
 
 def directedEvolution(
@@ -155,71 +162,40 @@ if __name__ == "__main__":
         E3 = pickle.load(f)
 
 
-    # Get the parent directory of this script
-    parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    sys.path.append(parent_dir)
-
-
-    # GB1
-
-    print("Generating curves for GB1...")
-    ld = GB1
-
     m = 0.1
-    results = generate_decay_curve(ld=ld, m=m / 4)
-    with open(
-        os.path.join(
-            slide_data_dir,
-            "empirical_decay_curves/decay_curves_gb1_m0.1_multistart_10000_uniform.pkl",
-        ),
-        "wb",
-    ) as f:
-        pickle.dump(np.array(results), f)
+    landscape_sizes = [4,4,4,3]
+    names = ['gb1', 'trpb', 'tev', 'pard3']
+    lds = [GB1, TrpB, TEV, E3]
+    jit_decay_curve = jax.jit(generate_decay_curve, static_argnames=['p', 'vmap_width', 'num_reps'])
+    for ld, name, size in zip(lds, names, landscape_sizes):
+        print(f"Generating curves for {name}...")
+        results = jit_decay_curve(ld=ld, m=m / size)
+        with open(
+            os.path.join(
+                slide_data_dir,
+                f"empirical_decay_curves/decay_curves_{name}_m0.1_multistart_10000_uniform.pkl",
+            ),
+            "wb",
+        ) as f:
+            pickle.dump(np.array(results), f)
 
-    # TrpB
 
-    print("Generating curves for TrpB...")
-    ld = TrpB
+    print("Now generating different popsizes...")
+    pop_sizes = np.logspace(1,3, num=8, dtype=int)
+    for pop_size in pop_sizes:
+        print(f"Generating curves for pop size {pop_size}...")
+        for ld, name, size in zip(lds, names, landscape_sizes):
+            print(f"Generating curves for {name}...")
+            results = generate_decay_curve(ld=ld, m=0.1 / size, p=pop_size, vmap_width=2000, num_reps=1)
+            with open(
+                os.path.join(
+                    slide_data_dir,
+                    f"empirical_decay_curves/decay_curves_{name}_m0.1_popsize{pop_size}_multistart_2000_uniform.pkl",
+                ),
+                "wb",
+            ) as f:
+                pickle.dump(np.array(results), f)
 
-    m = 0.1
-    results = generate_decay_curve(ld=ld, m=m / 4)
-    with open(
-        os.path.join(
-            slide_data_dir,
-            "empirical_decay_curves/decay_curves_trpb_m0.1_multistart_10000_uniform.pkl",
-        ),
-        "wb",
-    ) as f:
-        pickle.dump(np.array(results), f)
 
-    # TEV
 
-    print("Generating curves for TEV...")
-    ld = TEV
 
-    m = 0.1
-    results = generate_decay_curve(ld=ld, m=m / 4)
-    with open(
-        os.path.join(
-            slide_data_dir,
-            "empirical_decay_curves/decay_curves_tev_m0.1_multistart_10000_uniform.pkl",
-        ),
-        "wb",
-    ) as f:
-        pickle.dump(np.array(results), f)
-
-    # ParD3
-
-    print("Generating curves for ParD3...")
-    ld = E3
-
-    m = 0.1
-    results = generate_decay_curve(ld=ld, m=m / 3, p=60)
-    with open(
-        os.path.join(
-            slide_data_dir,
-            "empirical_decay_curves/decay_curves_pard3_m0.1_multistart_10000_uniform.pkl",
-        ),
-        "wb",
-    ) as f:
-        pickle.dump(np.array(results), f)

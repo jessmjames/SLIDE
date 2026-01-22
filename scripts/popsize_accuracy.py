@@ -1,6 +1,8 @@
 import sys
 import os
 
+from slide_config import get_slide_data_dir
+
 # Get the parent directory of this script
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
@@ -17,8 +19,8 @@ import tqdm
 # Limit memory usage to 50% (adjust as needed)
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.99"
 
-# Define the SLIDE_data path
-slide_data_dir = "/home/jess/Documents/SLIDE_data"
+# Resolve SLIDE_data path via env var / local untracked config / sensible default
+slide_data_dir = str(get_slide_data_dir())
 
 
 def directedEvolution(

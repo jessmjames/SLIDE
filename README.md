@@ -25,6 +25,18 @@ SLIDE/\
 - Plots can be reproduced by running ruggedness_figures_plots.ipynb.
 - More in-depth analysis can be found in ruggedness_figures_data_processing.ipynb, which requires SLIDE_data files (download from Zenodo: 10.5281/zenodo.16849761, or generate from .py files in scripts/).
 
+## Data files (SLIDE_data)
+
+Some notebooks and scripts expect a directory containing the larger SLIDE data files.
+By default, the code looks for an untracked folder at:
+
+- `./SLIDE_data/` (inside this repo)
+
+If your data live elsewhere, set either:
+
+- environment variable `SLIDE_DATA_DIR`, or
+- create a local `slide_paths.json` (see `slide_paths.example.json`) and set `slide_data_dir`.
+
 ### Note: This code requires Jax. 
 Please follow the instructions at https://jax.readthedocs.io/en/latest/installation.html to install.
 

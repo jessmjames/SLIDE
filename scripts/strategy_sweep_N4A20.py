@@ -1,6 +1,8 @@
 import sys
 import os
 
+from slide_config import get_slide_data_dir
+
 # Get the parent directory of this script
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
@@ -14,7 +16,7 @@ from direvo_functions import *
 import selection_function_library as slct
 import tqdm
 
-slide_data_dir = "/home/jess/Documents/SLIDE_data"
+slide_data_dir = str(get_slide_data_dir())
 
 
 def directedEvolution(
