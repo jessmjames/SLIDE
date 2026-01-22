@@ -103,40 +103,39 @@ def uniform_start_locs(ld, num=10000):
     return indexes
 
 
-def generate_decay_curve(ld, m, p=2500):
+def generate_decay_curve(ld, m, p=2500, vmap_width = 100, num_reps = 100):
 
     ld = jnp.array(ld)
 
-    results = []
+    
     if ld.shape == (20, 20, 20, 20):
-        all_starts = uniform_start_locs(ld).reshape(100, 100, 4)
+        all_starts = uniform_start_locs(ld).reshape( num_reps,vmap_width, 4)
     else:
-        all_starts = uniform_start_locs(ld).reshape(100, 100, 3)
+        all_starts = uniform_start_locs(ld).reshape(num_reps, vmap_width, 3)
+
+    def single_rep(start):
+        params = {"threshold": 0.0, "base_chance": 1.0}
+        run = directedEvolution(
+            jr.PRNGKey(42),
+            selection_strategy=slct.base_chance_threshold_select,
+            selection_params=params,
+            popsize=int(p),
+            mut_chance=m,
+            num_steps=25,
+            num_reps=10,
+            pre_optimisation_steps=0,
+            define_i_pop=jnp.array([start] * int(p)),
+            empirical=True,
+            landscape=ld,
+            average=False,
+        )
+
+        # split_results.append(run['fitness'].max(axis=2).mean(axis=0)[-1])
+        return run["fitness"].mean(axis=-1)
 
     for starts in tqdm.tqdm(all_starts):
-
-        def single_rep(start):
-
-            params = {"threshold": 0.0, "base_chance": 1.0}
-            run = directedEvolution(
-                jr.PRNGKey(42),
-                selection_strategy=slct.base_chance_threshold_select,
-                selection_params=params,
-                popsize=int(p),
-                mut_chance=m,
-                num_steps=25,
-                num_reps=10,
-                pre_optimisation_steps=0,
-                define_i_pop=jnp.array([start] * int(p)),
-                empirical=True,
-                landscape=ld,
-                average=False,
-            )
-
-            # split_results.append(run['fitness'].max(axis=2).mean(axis=0)[-1])
-            return run["fitness"].mean(axis=-1)
-
-        results.append(jax.vmap(single_rep)(starts))
+        results = []
+        results.append(jax.jit(jax.vmap(single_rep))(starts))
 
     return results
 
