@@ -121,7 +121,8 @@ def generate_decay_curve(ld, m, p=2500, vmap_width = 100, num_reps = 100, rng =N
     else:
         all_starts = uniform_start_locs(ld, num = num_reps * vmap_width).reshape(num_reps, vmap_width, 3)
 
-    def single_rep(rng, start):
+    def single_rep(rng_start):
+        rng, start = rng_start
         params = {"threshold": 0.0, "base_chance": 1.0}
         run = directedEvolution(
             rng,
@@ -131,7 +132,7 @@ def generate_decay_curve(ld, m, p=2500, vmap_width = 100, num_reps = 100, rng =N
             mut_chance=m,
             num_steps=25,
             num_reps=10,
-            pre_optimisation_steps=2,
+            pre_optimisation_steps=10,
             define_i_pop=jnp.array([start] * int(p)),
             empirical=True,
             landscape=ld,
@@ -141,9 +142,9 @@ def generate_decay_curve(ld, m, p=2500, vmap_width = 100, num_reps = 100, rng =N
         # split_results.append(run['fitness'].max(axis=2).mean(axis=0)[-1])
         return run["fitness"].mean(axis=-1)
 
-    num_starts = all_starts.shape[0]
-    rng_seeds = jr.split(rng, num_starts)
-    results = jax.lax.map(jax.vmap(single_rep), (rng_seeds, all_starts))
+    rng_seeds = jr.split(rng, num_reps * vmap_width)
+    rng_seeds = rng_seeds.reshape(num_reps, vmap_width, 2)
+    results = jax.lax.map(jax.vmap(single_rep), (rng_seeds, all_starts)) 
 
     return results
 
