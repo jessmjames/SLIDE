@@ -110,27 +110,28 @@ def uniform_start_locs(ld, num=10000):
     return indexes
 
 
-def generate_decay_curve(ld, m, p=2500, vmap_width = 100, num_reps = 100):
+def generate_decay_curve(ld, m, p=2500, vmap_width = 100, num_reps = 100, rng =None):
 
     ld = jnp.array(ld)
-
+    if rng is None:
+        rng = jax.random.PRNGKey(42)
     
     if ld.shape == (20, 20, 20, 20):
-        all_starts = uniform_start_locs(ld).reshape( num_reps,vmap_width, 4)
+        all_starts = uniform_start_locs(ld, num = num_reps * vmap_width).reshape( num_reps,vmap_width, 4)
     else:
-        all_starts = uniform_start_locs(ld).reshape(num_reps, vmap_width, 3)
+        all_starts = uniform_start_locs(ld, num = num_reps * vmap_width).reshape(num_reps, vmap_width, 3)
 
-    def single_rep(start):
+    def single_rep(rng, start):
         params = {"threshold": 0.0, "base_chance": 1.0}
         run = directedEvolution(
-            jr.PRNGKey(42),
+            rng,
             selection_strategy=slct.base_chance_threshold_select,
             selection_params=params,
             popsize=int(p),
             mut_chance=m,
             num_steps=25,
             num_reps=10,
-            pre_optimisation_steps=0,
+            pre_optimisation_steps=2,
             define_i_pop=jnp.array([start] * int(p)),
             empirical=True,
             landscape=ld,
@@ -140,9 +141,9 @@ def generate_decay_curve(ld, m, p=2500, vmap_width = 100, num_reps = 100):
         # split_results.append(run['fitness'].max(axis=2).mean(axis=0)[-1])
         return run["fitness"].mean(axis=-1)
 
-    for starts in tqdm.tqdm(all_starts):
-        results = []
-        results.append(jax.jit(jax.vmap(single_rep))(starts))
+    num_starts = all_starts.shape[0]
+    rng_seeds = jr.split(rng, num_starts)
+    results = jax.lax.map(jax.vmap(single_rep), (rng_seeds, all_starts))
 
     return results
 
@@ -186,7 +187,7 @@ if __name__ == "__main__":
         print(f"Generating curves for pop size {pop_size}...")
         for ld, name, size in zip(lds, names, landscape_sizes):
             print(f"Generating curves for {name}...")
-            results = generate_decay_curve(ld=ld, m=0.1 / size, p=pop_size, vmap_width=2000, num_reps=1)
+            results = generate_decay_curve(ld=ld, m=0.1 / size, p=pop_size, vmap_width=100, num_reps=20)
             with open(
                 os.path.join(
                     slide_data_dir,
