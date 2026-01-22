@@ -24,13 +24,3 @@ htmlcov/
 
 # ---- Notebook artifacts ----
 .ipynb_checkpoints/
-
-# ---- Generated figures / outputs ----
-figures/
-**/figures/
-*.pdf
-*.png
-*.svg
-*.eps
-*.tif
-*.tiff
