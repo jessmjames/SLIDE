@@ -1,10 +1,5 @@
 import sys
 import os
-
-# Get the parent directory of this script
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(parent_dir)
-
 import pickle
 import numpy as np
 import jax
@@ -108,21 +103,6 @@ def uniform_start_locs(ld, num=10000):
     return indexes
 
 
-## Loading landscapes
-
-with open("landscape_arrays/GB1_landscape_array.pkl", "rb") as f:
-    GB1 = pickle.load(f)
-
-with open("landscape_arrays/TrpB_landscape_array.pkl", "rb") as f:
-    TrpB = pickle.load(f)
-
-with open("landscape_arrays/TEV_landscape_array.pkl", "rb") as f:
-    TEV = pickle.load(f)
-
-with open("landscape_arrays/E3_landscape_array.pkl", "rb") as f:
-    E3 = pickle.load(f)
-
-
 def generate_decay_curve(ld, m, p=2500):
 
     ld = jnp.array(ld)
@@ -160,67 +140,87 @@ def generate_decay_curve(ld, m, p=2500):
 
     return results
 
+if __name__ == "__main__":
+    ## Loading landscapes
 
-# GB1
+    with open("landscape_arrays/GB1_landscape_array.pkl", "rb") as f:
+        GB1 = pickle.load(f)
 
-print("Generating curves for GB1...")
-ld = GB1
+    with open("landscape_arrays/TrpB_landscape_array.pkl", "rb") as f:
+        TrpB = pickle.load(f)
 
-m = 0.1
-results = generate_decay_curve(ld=ld, m=m / 4)
-with open(
-    os.path.join(
-        slide_data_dir,
-        "empirical_decay_curves/decay_curves_gb1_m0.1_multistart_10000_uniform.pkl",
-    ),
-    "wb",
-) as f:
-    pickle.dump(np.array(results), f)
+    with open("landscape_arrays/TEV_landscape_array.pkl", "rb") as f:
+        TEV = pickle.load(f)
 
-# TrpB
+    with open("landscape_arrays/E3_landscape_array.pkl", "rb") as f:
+        E3 = pickle.load(f)
 
-print("Generating curves for TrpB...")
-ld = TrpB
 
-m = 0.1
-results = generate_decay_curve(ld=ld, m=m / 4)
-with open(
-    os.path.join(
-        slide_data_dir,
-        "empirical_decay_curves/decay_curves_trpb_m0.1_multistart_10000_uniform.pkl",
-    ),
-    "wb",
-) as f:
-    pickle.dump(np.array(results), f)
+    # Get the parent directory of this script
+    parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    sys.path.append(parent_dir)
 
-# TEV
 
-print("Generating curves for TEV...")
-ld = TEV
+    # GB1
 
-m = 0.1
-results = generate_decay_curve(ld=ld, m=m / 4)
-with open(
-    os.path.join(
-        slide_data_dir,
-        "empirical_decay_curves/decay_curves_tev_m0.1_multistart_10000_uniform.pkl",
-    ),
-    "wb",
-) as f:
-    pickle.dump(np.array(results), f)
+    print("Generating curves for GB1...")
+    ld = GB1
 
-# ParD3
+    m = 0.1
+    results = generate_decay_curve(ld=ld, m=m / 4)
+    with open(
+        os.path.join(
+            slide_data_dir,
+            "empirical_decay_curves/decay_curves_gb1_m0.1_multistart_10000_uniform.pkl",
+        ),
+        "wb",
+    ) as f:
+        pickle.dump(np.array(results), f)
 
-print("Generating curves for ParD3...")
-ld = E3
+    # TrpB
 
-m = 0.1
-results = generate_decay_curve(ld=ld, m=m / 3, p=60)
-with open(
-    os.path.join(
-        slide_data_dir,
-        "empirical_decay_curves/decay_curves_pard3_m0.1_multistart_10000_uniform.pkl",
-    ),
-    "wb",
-) as f:
-    pickle.dump(np.array(results), f)
+    print("Generating curves for TrpB...")
+    ld = TrpB
+
+    m = 0.1
+    results = generate_decay_curve(ld=ld, m=m / 4)
+    with open(
+        os.path.join(
+            slide_data_dir,
+            "empirical_decay_curves/decay_curves_trpb_m0.1_multistart_10000_uniform.pkl",
+        ),
+        "wb",
+    ) as f:
+        pickle.dump(np.array(results), f)
+
+    # TEV
+
+    print("Generating curves for TEV...")
+    ld = TEV
+
+    m = 0.1
+    results = generate_decay_curve(ld=ld, m=m / 4)
+    with open(
+        os.path.join(
+            slide_data_dir,
+            "empirical_decay_curves/decay_curves_tev_m0.1_multistart_10000_uniform.pkl",
+        ),
+        "wb",
+    ) as f:
+        pickle.dump(np.array(results), f)
+
+    # ParD3
+
+    print("Generating curves for ParD3...")
+    ld = E3
+
+    m = 0.1
+    results = generate_decay_curve(ld=ld, m=m / 3, p=60)
+    with open(
+        os.path.join(
+            slide_data_dir,
+            "empirical_decay_curves/decay_curves_pard3_m0.1_multistart_10000_uniform.pkl",
+        ),
+        "wb",
+    ) as f:
+        pickle.dump(np.array(results), f)
