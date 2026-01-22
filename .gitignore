@@ -3,3 +3,34 @@ venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+
+# ---- Python / CPython artifacts ----
+*.pyo
+*.pyd
+*.so
+*.dll
+*.dylib
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ---- Notebook artifacts ----
+.ipynb_checkpoints/
+
+# ---- Generated figures / outputs ----
+figures/
+**/figures/
+*.pdf
+*.png
+*.svg
+*.eps
+*.tif
+*.tiff
