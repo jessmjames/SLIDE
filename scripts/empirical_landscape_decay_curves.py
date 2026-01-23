@@ -89,6 +89,18 @@ def uniform_start_locs(ld, num=10000):
     indexes = np.array([np.unravel_index(i, ld.shape) for i in flat_indexes])
     return indexes
 
+def get_WT_starts(arr, n_points=10, percentile=99):
+    flat = arr.ravel()
+    threshold = np.percentile(flat, percentile)
+    top_mask = flat >= threshold
+    top_indices = np.nonzero(top_mask)[0]
+    distances = flat[top_indices] - threshold
+    closest = np.argsort(distances)[:n_points]
+    flat_indices = top_indices[closest]
+    indices_4d = np.column_stack(np.unravel_index(flat_indices, arr.shape))
+
+    return indices_4d
+
 ## Loading landscapes
 
 with open('landscape_arrays/GB1_landscape_array.pkl', 'rb') as f:
@@ -112,6 +124,8 @@ def generate_decay_curve(ld, m,p=2500):
         all_starts = uniform_start_locs(ld).reshape(100,100,4)
     else:
         all_starts = uniform_start_locs(ld).reshape(100,100,3)
+
+    all_starts = get_WT_starts(ld)
 
     for starts in tqdm.tqdm(all_starts):
         def single_rep(start):
