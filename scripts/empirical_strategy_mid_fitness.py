@@ -56,11 +56,23 @@ def directed_evo(s_rng,
                       define_i_pop=None):
    
  
-    # Get initial population.
-    if define_i_pop == None:
-        i_pop = jnp.array([jr.randint(rng_rep, (N,), 0, num_alleles)]*popsize)
+    if define_i_pop is None:
+        i_pop = jnp.tile(
+            jr.randint(rng_rep, (1, N), 0, num_alleles),
+            (popsize, 1)
+        )
     else:
-        i_pop = define_i_pop[None,:] * jnp.ones((popsize, N), dtype=jnp.int32)
+        define_i_pop = jnp.asarray(define_i_pop)
+
+        if define_i_pop.ndim == 1:
+            # single genotype → tile
+            i_pop = jnp.tile(define_i_pop[None, :], (popsize, 1))
+        elif define_i_pop.ndim == 2:
+            # full population provided → use directly
+            i_pop = define_i_pop
+        else:
+            raise ValueError("define_i_pop must be shape (N,) or (popsize, N)")
+
  
     mutation_function = build_mutation_function(mut_chance, num_alleles)
  
@@ -79,7 +91,7 @@ def directed_evo(s_rng,
     return results
  
  
-def get_single_sweep_empirical(base_chances, thresholds, splits, popsize, start, num_alleles = 2, num_reps = 10):
+def get_single_sweep_empirical(base_chances, thresholds, splits, popsize, start, num_alleles = 20, num_reps = 10):
  
     def to_return(rng, landscape_arr):
         fitness_function = build_empirical_landscape_function(landscape_arr)
@@ -137,10 +149,21 @@ splits = [24,20,16,12,8,4,1]
 m=0.1
 p=1200
 
+master_key = jr.PRNGKey(42)
+
+print(len(GB1_starts))
+
 start_results = []
-for start in GB1_starts:
-    sweepy_empirical = get_single_sweep_empirical(base_chances, thresholds, splits, p, start, num_alleles=2, num_reps=10)
-    start_results.append([sweepy_empirical(i, GB1) for i in jr.split(jr.PRNGKey(42), 10)])
+keys_for_starts = jr.split(master_key, len(GB1_starts))
+
+for start, k_start in zip(GB1_starts, keys_for_starts):
+    rep_keys = jr.split(k_start, 10)
+    sweepy_empirical = get_single_sweep_empirical(
+        base_chances, thresholds, splits, p, start,
+        num_alleles=2, num_reps=10
+    )
+    start_results.append([sweepy_empirical(k, GB1) for k in rep_keys])
+
 
 with open(os.path.join(slide_data_dir, "GB1_strategy_sweep_mid_fitness.pkl"), "wb") as f:
     pickle.dump(np.array(start_results), f)

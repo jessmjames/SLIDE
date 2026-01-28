@@ -116,7 +116,7 @@ def generate_decay_curve(ld, m,p=2500):
     else:
         all_starts = uniform_start_locs(ld).reshape(100,100,3)
 
-    all_starts = get_WT_starts(ld).reshape(1,10,4)
+    all_starts = get_WT_starts(ld, n_points=100).reshape(1,100,4)
 
     for starts in tqdm.tqdm(all_starts):
         def single_rep(start):
@@ -149,5 +149,5 @@ ld = GB1
 
 m = 0.1
 results = generate_decay_curve(ld = ld, m = m/4)
-with open(os.path.join(slide_data_dir, "decay_curves_gb1_mid_fitness.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, "decay_curves_gb1_mid_fitness_100.pkl"), "wb") as f:
     pickle.dump(np.array(results), f)
