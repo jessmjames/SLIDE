@@ -315,6 +315,21 @@ def build_stochastic_block_landscape_function(
 
     return jax.jit(jax.vmap(get_fitness))
 
+def get_array_from_function(func, shape):
+    """
+    Utility function to get an array of values from a function.
+
+    Parameters:
+    - func: Function that takes in an index and returns a value.
+    - shape: Shape of the output array.
+
+    Returns:
+    - Array of values from the function.
+    """
+
+    indices = jnp.indices(shape).reshape(len(shape), -1).T
+    values = jax.vmap(func)(indices)
+    return values.reshape(shape)
 
 ### MUTATION FUNCTION ---------------------------------------------------------------------------------------------
 
@@ -340,6 +355,39 @@ def build_mutation_function(mutation_chance, num_options=2):
 
     return mutation_function
 
+def build_blosum_mutation_function(mutation_chance, blosum_probs):
+    """
+    Generates a function that mutates a population of amino acid sequences based on BLOSUM62 probabilities.
+
+    Parameters:
+    - mutation_chance: Probability of a mutation per site.
+    - blosum_probs: 20x20 array of mutation probabilities between amino acids.
+
+    Returns:
+    - Function that applies mutations to a whole population of amino acid sequences.
+    """
+    # Number of amino acids
+    A = 20
+
+    def mutation_function(rng, pop):
+        r1, r2 = jr.split(rng, 2)
+        pshape = pop.shape
+        has_mutation = jr.bernoulli(r1, mutation_chance, pshape)
+
+        flat_pop = pop.flatten()
+        pop_size = flat_pop.shape[0]
+
+        def mutate_amino_acid(rng, aa):
+            return jr.choice(rng, jnp.arange(A), p=blosum_probs[aa])
+
+        mutate_amino_acid_vmap = jax.vmap(mutate_amino_acid)
+
+        flat_mutated_pop = mutate_amino_acid_vmap(jr.split(r2, pop_size), flat_pop)
+        mutated_pop = flat_mutated_pop.reshape(pshape)
+
+        return jnp.where(has_mutation, mutated_pop, pop)
+
+    return mutation_function
 
 ### SELECTION FUNCTION ---------------------------------------------------------------------------------------------
 

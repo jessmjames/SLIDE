@@ -139,7 +139,7 @@ for nks in NKs:
             # split_results.append(run['fitness'].max(axis=2).mean(axis=0)[-1])
             return run["fitness"].mean(axis=-1)
 
-        results.append(jax.vmap(single_rep)(starts_subset))
+        results.append(jax.jit(jax.vmap(single_rep))(starts_subset))
 
     NK_results.append(results)
 
