@@ -123,6 +123,204 @@ def build_empirical_landscape_function(landscape):
     return jax.jit(jax.vmap(get_fitness))
 
 
+### CODON MAPPING UTILITIES ----------------------------------------------------------------------------------------
+
+
+GB1_acid_start = jnp.array([3, 17, 0, 3], dtype=jnp.int32)
+GB1_codon_start = jnp.array(
+    [3, 0, 0, 3, 0, 2, 3, 0, 3, 3, 0, 0], dtype=jnp.int32
+)
+
+CODON_MAPPER = jnp.array(
+    [
+        [[8, 18, 9, 7], [8, 18, 9, 7], [4, 18, -1, -1], [4, 18, -1, 10]],
+        [[4, 1, 11, 13], [4, 1, 11, 13], [4, 1, 14, 13], [4, 1, 14, 13]],
+        [[5, 19, 15, 18], [5, 19, 15, 18], [5, 19, 12, 13], [6, 19, 12, 13]],
+        [[3, 2, 17, 0], [3, 2, 17, 0], [3, 2, 16, 0], [3, 2, 16, 0]],
+    ],
+    dtype=jnp.int32,
+)
+
+INVERSE_CODON_MAPPER = jnp.array(
+    [
+        [3, 0, 3],
+        [1, 0, 1],
+        [3, 0, 1],
+        [3, 0, 0],
+        [0, 2, 0],
+        [2, 0, 0],
+        [2, 3, 0],
+        [0, 0, 3],
+        [0, 0, 0],
+        [0, 0, 2],
+        [0, 3, 3],
+        [1, 0, 2],
+        [2, 2, 2],
+        [1, 0, 3],
+        [1, 2, 2],
+        [2, 0, 2],
+        [3, 2, 2],
+        [3, 0, 2],
+        [0, 0, 1],
+        [2, 0, 1],
+    ],
+    dtype=jnp.int32,
+)
+
+# Backward-compatible alias for the original typo.
+INVERSE_CODON_MAPER = INVERSE_CODON_MAPPER
+
+
+def inverse_codon(codon):
+    """
+    Returns the inverse (codon triplet) of an amino-acid index.
+    Returns [-1, -1, -1] for invalid indices (e.g., stop codons).
+    """
+
+    codon = jnp.asarray(codon)
+    max_index = INVERSE_CODON_MAPPER.shape[0] - 1
+    valid = (codon >= 0) & (codon <= max_index)
+    safe_codon = jnp.clip(codon, 0, max_index)
+    return jnp.where(valid[..., None], INVERSE_CODON_MAPPER[safe_codon], -1)
+
+
+def get_pre_defined_landscape_function_with_codon(landscape):
+    """
+    Looks up fitness values on a pre-defined landscape which is
+    defined by amino acids. It uses the codon look-up method.
+    We also assume landscape has each dimension size 20, and doesn't
+    account for stop codons, which we map to being the min fitness.
+    """
+
+    n = len(landscape.shape)
+
+    min_fitness = jnp.min(landscape)
+
+    buffered_landscape = jnp.pad(landscape, [(0, 1)] * n, constant_values=min_fitness)
+
+    def get_codon(i):
+        return CODON_MAPPER[tuple(i)]
+
+    vmapped_get_codons = jax.jit(jax.vmap(get_codon))
+
+    def get_fitties(params):
+        parries_reshaped = jnp.reshape(params, (-1, 3))
+        codon_set = vmapped_get_codons(parries_reshaped)
+        return buffered_landscape[tuple(codon_set)]
+
+    return jax.jit(jax.vmap(get_fitties))
+
+
+def get_pd_landscape_function_codon_masked(landscape, mask, replacement):
+    """
+    Looks up fitness values on a pre-defined landscape which is
+    defined by amino acids. It uses the codon look-up method.
+    We also assume landscape has each dimension size 20, and doesn't
+    account for stop codons, which we map to being the min fitness.
+    """
+
+    n = len(landscape.shape)
+
+    min_fitness = jnp.min(landscape)
+
+    buffered_landscape = jnp.pad(landscape, [(0, 1)] * n, constant_values=min_fitness)
+
+    def get_codon(i):
+        return CODON_MAPPER[tuple(i)]
+
+    vmapped_get_codons = jax.jit(jax.vmap(get_codon))
+
+    def get_fitties(params):
+        new_params = jnp.where(mask, replacement, params)
+        parries_reshaped = jnp.reshape(new_params, (-1, 3))
+        codon_set = vmapped_get_codons(parries_reshaped)
+        return buffered_landscape[tuple(codon_set)]
+
+    return jax.jit(jax.vmap(get_fitties))
+
+
+def get_pd_landscape_function_masked(landscape, mask, replacement):
+    """
+    Looks up fitness values on a pre-defined landscape.
+    """
+
+    def get_fitness(i):
+        new_i = jnp.where(mask, replacement, i)
+        return landscape[tuple(new_i)]
+
+    return jax.jit(jax.vmap(get_fitness))
+
+def convert_landscape_function_to_codon(
+    landscape_function,
+    stop_codon_strategy="min_fitness",
+    stop_codon_value=None,
+    stop_codon_index=20,
+    sample_size=256,
+    sample_extra=0.0,
+    rng=jr.PRNGKey(0),
+):
+    """
+    Converts a landscape function defined on amino acids to one defined on codons.
+
+    Possible stop codon strategies:
+     min_fitness: uses the minimum fitness from the landscape (estimated by sampling
+        if stop_codon_value is not provided).
+     fill_fitness: uses stop_codon_value for any sequence containing a stop codon.
+     another_amino_acid: treats stop codons as a 21st amino acid (index stop_codon_index).
+     sample_min_fitness: samples k values on the landscape, takes the min, and adds
+        sample_extra (if stop_codon_value is not provided).
+    """
+
+    valid_strategies = {
+        "min_fitness",
+        "fill_fitness",
+        "another_amino_acid",
+        "sample_min_fitness",
+    }
+    if stop_codon_strategy not in valid_strategies:
+        raise ValueError(
+            "stop_codon_strategy must be one of "
+            f"{sorted(valid_strategies)} (got {stop_codon_strategy})."
+        )
+
+    if stop_codon_strategy == "fill_fitness" and stop_codon_value is None:
+        raise ValueError("stop_codon_value must be provided for fill_fitness.")
+
+    def convert_gene(gene):
+        pop_reshaped = jnp.reshape(gene, (-1, 3))
+        codon_set = CODON_MAPPER[tuple(pop_reshaped.T)]
+        return codon_set
+
+    vmapped_convert_gene = jax.jit(jax.vmap(convert_gene))
+
+    def estimate_min_fitness(num_sites):
+        sample_key, _ = jr.split(rng)
+        sampled_genes = jr.randint(sample_key, (sample_size, num_sites), 0, 20)
+        sample_fitness = landscape_function(sampled_genes)
+        return jnp.min(sample_fitness) + sample_extra
+
+    def get_fitness(genes):
+        codon_genes = vmapped_convert_gene(genes)
+        has_stop = jnp.any(codon_genes < 0, axis=-1)
+
+        if stop_codon_strategy == "another_amino_acid":
+            safe_codons = jnp.where(codon_genes < 0, stop_codon_index, codon_genes)
+            return landscape_function(safe_codons)
+
+        num_sites = codon_genes.shape[-1]
+        if stop_codon_value is None:
+            stop_value = estimate_min_fitness(num_sites)
+        else:
+            stop_value = stop_codon_value
+
+        safe_codons = jnp.where(codon_genes < 0, 0, codon_genes)
+        fitness_values = landscape_function(safe_codons)
+        return jnp.where(has_stop, stop_value, fitness_values)
+
+    return jax.jit(get_fitness)
+
+## Synthetic landscape generators.
+
 def build_NK_landscape_function(rng, N, K, fitness_distribution=jr.normal):
     """
     Looks up fitness values on an NK landscape.
@@ -328,7 +526,7 @@ def get_array_from_function(func, shape):
     """
 
     indices = jnp.indices(shape).reshape(len(shape), -1).T
-    values = jax.vmap(func)(indices)
+    values = func(indices)
     return values.reshape(shape)
 
 ### MUTATION FUNCTION ---------------------------------------------------------------------------------------------
@@ -355,7 +553,7 @@ def build_mutation_function(mutation_chance, num_options=2):
 
     return mutation_function
 
-def build_blosum_mutation_function(mutation_chance, blosum_probs):
+def build_custom_mutation_function(mutation_chance, transition_matrix, A = None):
     """
     Generates a function that mutates a population of amino acid sequences based on BLOSUM62 probabilities.
 
@@ -367,7 +565,10 @@ def build_blosum_mutation_function(mutation_chance, blosum_probs):
     - Function that applies mutations to a whole population of amino acid sequences.
     """
     # Number of amino acids
-    A = 20
+    if A is None:
+        A = transition_matrix.shape[0]
+
+    transition_matrix = jnp.array(transition_matrix)
 
     def mutation_function(rng, pop):
         r1, r2 = jr.split(rng, 2)
@@ -378,7 +579,7 @@ def build_blosum_mutation_function(mutation_chance, blosum_probs):
         pop_size = flat_pop.shape[0]
 
         def mutate_amino_acid(rng, aa):
-            return jr.choice(rng, jnp.arange(A), p=blosum_probs[aa])
+            return jr.choice(rng, jnp.arange(A), p=transition_matrix[aa])
 
         mutate_amino_acid_vmap = jax.vmap(mutate_amino_acid)
 
