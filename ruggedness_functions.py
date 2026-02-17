@@ -396,6 +396,10 @@ def get_landscape_spectrum(landscape, norm=False, remove_constant=True, on_gpu=F
         )
     return collapsed_spectrum
 
+def get_spectral_entropy(landscape,  remove_constant=True, on_gpu=False):
+    spectrum = get_landscape_spectrum(landscape, norm=True, remove_constant=remove_constant, on_gpu=on_gpu)
+    spectral_entropy = -np.sum(spectrum * np.log(spectrum + 1e-10))
+    return spectral_entropy
 
 def get_exp_matrix(
     N: int,
