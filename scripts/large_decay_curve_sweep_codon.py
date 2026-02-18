@@ -20,12 +20,19 @@ import tqdm
 slide_data_dir = str(get_slide_data_dir())
 
 # --- Mutation kernel settings -------------------------------------------------
-# Choose one of the saved codon kernels (rows should be probabilities).
-# Examples in other_data/: human_codon_matrix.npy, normed_human_codon_matrix.npy
-MUTATION_MATRIX_PATH = os.path.join("other_data", "normed_human_codon_matrix.npy")
+# Loop over a few normalized codon kernels and save each sweep separately.
+# Rows should be probabilities.
+CODON_KERNELS = [
+    ("e_coli", os.path.join("other_data", "normed_e_coli_matrix.npy")),
+    ("a_thaliana", os.path.join("other_data", "normed_a_thaliana_matrix.npy")),
+    ("human", os.path.join("other_data", "normed_human_codon_matrix.npy")),
+]
 
-# If True, uses the codon transition matrix for mutation; otherwise falls back to uniform mutation.
+# If True, uses the codon transition matrices for mutation; otherwise falls back to uniform mutation.
 USE_CODON_KERNEL = True
+
+# Avoid overwriting existing sweep outputs by default.
+OVERWRITE = False
 
 
 def directedEvolution(
@@ -130,55 +137,64 @@ p = 2500
 
 reps = 25
 
-# Load codon transition matrix (64x64 expected) if enabled
-transition_matrix = None
-num_options = 2
-if USE_CODON_KERNEL:
-    transition_matrix = np.load(MUTATION_MATRIX_PATH)
-    if transition_matrix.ndim != 2 or transition_matrix.shape[0] != transition_matrix.shape[1]:
+def normalize_kernel(matrix: np.ndarray) -> np.ndarray:
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
         raise ValueError("Mutation kernel must be a square matrix.")
-    # Ensure rows are normalized
-    row_sums = transition_matrix.sum(axis=1, keepdims=True)
-    transition_matrix = transition_matrix / np.where(row_sums == 0, 1, row_sums)
-    num_options = int(transition_matrix.shape[0])
-
-sweep_results = np.zeros((100, 25, 10, 25))
-total_iterations = len(NKs)
-
-with tqdm.tqdm(total=total_iterations, desc="Overall Progress") as pbar:
-    for i, nks in enumerate(NKs):
-
-        rep_rngs = jr.split(jr.PRNGKey(42), reps)
-
-        def single_rep(rng_rep):
-
-            params = {"threshold": 0.0, "base_chance": 1.0}
-            run = directedEvolution(
-                rng_rep,
-                N=int(nks[0]),
-                K=int(nks[1]),
-                selection_strategy=slct.base_chance_threshold_select,
-                selection_params=params,
-                popsize=int(p),
-                mut_chance=m / int(nks[0]),
-                num_steps=25,
-                num_reps=10,
-                pre_optimisation_steps=50,
-                average=False,
-                num_options=num_options,
-                mutation_matrix=transition_matrix,
-            )
-
-            # split_results.append(run['fitness'].max(axis=2).mean(axis=0)[-1])
-            return run["fitness"].mean(axis=-1)
-
-        repeat_results = jax.vmap(single_rep)(rep_rngs)
-
-        sweep_results[i, :, :, :] = np.array(repeat_results)
-
-        pbar.update(1)
+    row_sums = matrix.sum(axis=1, keepdims=True)
+    return matrix / np.where(row_sums == 0, 1, row_sums)
 
 
-file_path = os.path.join(slide_data_dir, "large_decay_curve_sweep_codon.pkl")
-with open(file_path, "wb") as f:
-    pickle.dump(sweep_results, f)
+def run_single_kernel(label: str, transition_matrix: np.ndarray | None, num_options: int) -> None:
+    out_name = f"large_decay_curve_sweep_codon_{label}.pkl" if label else "large_decay_curve_sweep_codon.pkl"
+    file_path = os.path.join(slide_data_dir, out_name)
+    if (not OVERWRITE) and os.path.exists(file_path):
+        print(f"Skipping existing output: {file_path}")
+        return
+
+    sweep_results = np.zeros((100, 25, 10, 25))
+    total_iterations = len(NKs)
+
+    with tqdm.tqdm(total=total_iterations, desc=f"Overall Progress ({label})") as pbar:
+        for i, nks in enumerate(NKs):
+
+            rep_rngs = jr.split(jr.PRNGKey(42), reps)
+
+            def single_rep(rng_rep):
+
+                params = {"threshold": 0.0, "base_chance": 1.0}
+                run = directedEvolution(
+                    rng_rep,
+                    N=int(nks[0]),
+                    K=int(nks[1]),
+                    selection_strategy=slct.base_chance_threshold_select,
+                    selection_params=params,
+                    popsize=int(p),
+                    mut_chance=m / int(nks[0]),
+                    num_steps=25,
+                    num_reps=10,
+                    pre_optimisation_steps=50,
+                    average=False,
+                    num_options=num_options,
+                    mutation_matrix=transition_matrix,
+                )
+
+                return run["fitness"].mean(axis=-1)
+
+            repeat_results = jax.vmap(single_rep)(rep_rngs)
+
+            sweep_results[i, :, :, :] = np.array(repeat_results)
+
+            pbar.update(1)
+
+    with open(file_path, "wb") as f:
+        pickle.dump(sweep_results, f)
+    print(f"Wrote: {file_path}")
+
+
+if USE_CODON_KERNEL:
+    for label, path in CODON_KERNELS:
+        kernel = normalize_kernel(np.load(path))
+        num_options = int(kernel.shape[0])
+        run_single_kernel(label, kernel, num_options)
+else:
+    run_single_kernel("", None, num_options=2)
