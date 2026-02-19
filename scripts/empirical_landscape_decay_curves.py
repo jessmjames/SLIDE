@@ -109,6 +109,19 @@ def uniform_start_locs(ld, num=10000):
     indexes = np.array([np.unravel_index(i, ld.shape) for i in flat_indexes])
     return indexes
 
+def get_WT_starts(arr, n_points=10, percentile=99):
+    flat = arr.ravel()
+    threshold = np.percentile(flat, percentile)
+    top_mask = flat >= threshold
+    top_indices = np.nonzero(top_mask)[0]
+    distances = flat[top_indices] - threshold
+    closest = np.argsort(distances)[:n_points]
+    flat_indices = top_indices[closest]
+    indices_4d = np.column_stack(np.unravel_index(flat_indices, arr.shape))
+
+    return indices_4d
+
+## Loading landscapes
 
 def generate_decay_curve(ld, m, p=2500, vmap_width = 100, num_reps = 100, rng =None):
 
@@ -121,23 +134,10 @@ def generate_decay_curve(ld, m, p=2500, vmap_width = 100, num_reps = 100, rng =N
     else:
         all_starts = uniform_start_locs(ld, num = num_reps * vmap_width).reshape(num_reps, vmap_width, 3)
 
-    def single_rep(rng_start):
-        rng, start = rng_start
-        params = {"threshold": 0.0, "base_chance": 1.0}
-        run = directedEvolution(
-            rng,
-            selection_strategy=slct.base_chance_threshold_select,
-            selection_params=params,
-            popsize=int(p),
-            mut_chance=m,
-            num_steps=25,
-            num_reps=10,
-            pre_optimisation_steps=10,
-            define_i_pop=jnp.array([start] * int(p)),
-            empirical=True,
-            landscape=ld,
-            average=False,
-        )
+    all_starts = get_WT_starts(ld)
+
+    for starts in tqdm.tqdm(all_starts):
+        def single_rep(start):
 
         # split_results.append(run['fitness'].max(axis=2).mean(axis=0)[-1])
         return run["fitness"].mean(axis=-1)
