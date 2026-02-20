@@ -13,8 +13,9 @@ import jax.random as jr
 from direvo_functions import *
 import selection_function_library as slct
 import tqdm
+from slide_config import get_slide_data_dir
 
-slide_data_dir = "/home/jess/Documents/SLIDE_data"
+slide_data_dir = str(get_slide_data_dir())
 
 def directedEvolution(rng,
                       selection_strategy, 

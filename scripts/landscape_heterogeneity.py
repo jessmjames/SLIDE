@@ -10,11 +10,13 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-from direvo_functions import *
-import selection_function_library as slct
+# from direvo_functions import *
+# import selection_function_library as slct
+from other_direvo_functions import *
+import other_sel_funcs as slct
 import tqdm
 
-slide_data_dir = "/home/jess/Documents/SLIDE_data"
+slide_data_dir = "/home/seb/code/phd/SLIDE/"
 
 def directedEvolution(rng,
                       selection_strategy, 

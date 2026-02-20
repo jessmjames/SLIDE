@@ -125,6 +125,7 @@ def build_empirical_landscape_function(landscape):
 
 ### CODON MAPPING UTILITIES ----------------------------------------------------------------------------------------
 
+# Uses ordering [U, C, A, G] for nucleotide.
 
 GB1_acid_start = jnp.array([3, 17, 0, 3], dtype=jnp.int32)
 GB1_codon_start = jnp.array(
