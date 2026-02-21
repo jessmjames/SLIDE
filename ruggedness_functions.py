@@ -396,6 +396,30 @@ def get_landscape_spectrum(landscape, norm=False, remove_constant=True, on_gpu=F
         )
     return collapsed_spectrum
 
+def get_mean_spectrum_frequency(landscape, remove_constant=True, on_gpu=False):
+    """
+    Returns the mean frequency of the landscape spectrum, normalized to [0, 1].
+    Higher values indicate more power in high frequencies (more rugged).
+    """
+    spectrum = get_landscape_spectrum(landscape, norm=False, remove_constant=remove_constant, on_gpu=on_gpu)
+    
+    # Normalize spectrum to sum to 1 (probability distribution)
+    spectrum_normalized = spectrum / spectrum.sum()
+    
+    # Weight each frequency by its position
+    # If constant was removed, frequencies start at 1, otherwise at 0
+    if remove_constant:
+        frequencies = np.arange(1, len(spectrum) + 1)
+        max_freq = len(spectrum)  # Maximum frequency value
+    else:
+        frequencies = np.arange(len(spectrum))
+        max_freq = len(spectrum) - 1 if len(spectrum) > 1 else 1
+    
+    # Compute weighted mean and normalize to [0, 1]
+    mean_frequency = np.sum(frequencies * spectrum_normalized) / max_freq
+    
+    return mean_frequency
+
 def get_spectral_entropy(landscape,  remove_constant=True, on_gpu=False):
     spectrum = get_landscape_spectrum(landscape, norm=True, remove_constant=remove_constant, on_gpu=on_gpu)
     spectral_entropy = -np.sum(spectrum * np.log(spectrum + 1e-10))

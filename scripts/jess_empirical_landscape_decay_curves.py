@@ -139,7 +139,7 @@ def generate_decay_curve(ld, m,p=2500):
                                     selection_params = params,
                                     popsize=int(p),
                                     mut_chance=m,
-                                    num_steps=25,
+                                    num_steps=100,
                                     num_reps=10,
                                     pre_optimisation_steps=0,
                                     define_i_pop=jnp.array([start]*int(p)),
@@ -164,7 +164,7 @@ for ld, name in zip(lds, names):
     m = 0.1
     num_genes = len(ld.shape)
     results = generate_decay_curve(ld = ld, m = m/num_genes)
-    with open(os.path.join(slide_data_dir, f"empirical_decay_curves/decay_curves_{name}_m0.1_multistart_10000_uniform.pkl"), "wb") as f:
+    with open(os.path.join(slide_data_dir, f"empirical_decay_curves/decay_curves_{name}_m0.1_multistart_10000_uniform_100len.pkl"), "wb") as f:
         pickle.dump(np.array(results), f)
 
 

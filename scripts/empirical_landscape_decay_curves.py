@@ -185,34 +185,34 @@ if __name__ == "__main__":
     names = ['gb1', 'trpb', 'tev', 'pard3']
     lds = [GB1, TrpB, TEV, E3]
     jit_decay_curve = jax.jit(generate_decay_curve, static_argnames=['p', 'vmap_width', 'num_reps'])
-    for ld, name, size in zip(lds, names, landscape_sizes):
-        print(f"Generating curves for {name}...")
-        results = jit_decay_curve(ld=ld, m=m / size)
-        with open(
-            os.path.join(
-                slide_data_dir,
-                f"empirical_decay_curves/decay_curves_{name}_m0.1_multistart_10000_uniform.pkl",
-            ),
-            "wb",
-        ) as f:
-            pickle.dump(np.array(results), f)
+    # for ld, name, size in zip(lds, names, landscape_sizes):
+    #     print(f"Generating curves for {name}...")
+    #     results = jit_decay_curve(ld=ld, m=m / size)
+    #     with open(
+    #         os.path.join(
+    #             slide_data_dir,
+    #             f"empirical_decay_curves/decay_curves_{name}_m0.1_multistart_10000_uniform.pkl",
+    #         ),
+    #         "wb",
+    #     ) as f:
+    #         pickle.dump(np.array(results), f)
 
 
-    # print("Now generating different popsizes...")
-    # pop_sizes = np.logspace(1,3, num=8, dtype=int)
-    # for pop_size in pop_sizes:
-    #     print(f"Generating curves for pop size {pop_size}...")
-    #     for ld, name, size in zip(lds, names, landscape_sizes):
-    #         print(f"Generating curves for {name}...")
-    #         results = generate_decay_curve(ld=ld, m=0.1 / size, p=pop_size, vmap_width=100, num_reps=20)
-    #         with open(
-    #             os.path.join(
-    #                 slide_data_dir,
-    #                 f"empirical_decay_curves/decay_curves_{name}_m0.1_popsize{pop_size}_multistart_2000_uniform.pkl",
-    #             ),
-    #             "wb",
-    #         ) as f:
-    #             pickle.dump(np.array(results), f)
+    print("Now generating different popsizes...")
+    pop_sizes = np.logspace(1,4, num=8, dtype=int)
+    for pop_size in pop_sizes[::-1]:
+        print(f"Generating curves for pop size {pop_size}...")
+        for ld, name, size in zip(lds, names, landscape_sizes):
+            print(f"Generating curves for {name}...")
+            results = generate_decay_curve(ld=ld, m=0.1 / size, p=pop_size, vmap_width=100, num_reps=20)
+            with open(
+                os.path.join(
+                    slide_data_dir,
+                    f"empirical_decay_curves/decay_curves_{name}_m0.1_popsize{pop_size}_multistart_2000_uniform2.pkl",
+                ),
+                "wb",
+            ) as f:
+                pickle.dump(np.array(results), f)
 
 
 
