@@ -3,4 +3,40 @@ venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-*pkl
+
+# ---- Python / CPython artifacts ----
+*.pyo
+*.pyd
+*.so
+*.dll
+*.dylib
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ---- Notebook artifacts ----
+.ipynb_checkpoints/
+
+# ---- Local machine config (do not commit) ----
+slide_paths.json
+
+# ---- Large data (downloaded/generated; do not commit) ----
+SLIDE_data/
+
+# ---- Generated outputs (figures, plot data, processed matrices) ----
+figures/
+*.pkl
+!landscape_arrays/*.pkl
+other_data/*.npy
+*.zip
+
+# ---- IDE ----
+.vscode/
