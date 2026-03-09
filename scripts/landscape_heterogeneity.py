@@ -123,5 +123,5 @@ for nks in NKs:
 
 print(np.array(NK_results).shape)
 
-with open(os.path.join(slide_data_dir, "N4A20_heterogeneity.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, "N4A20_heterogeneity2.pkl"), "wb") as f:
     pickle.dump(np.array(NK_results), f)

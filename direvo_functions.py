@@ -278,6 +278,12 @@ def get_single_decay_rate(decay_data, mut = 0.1, num_steps = 25):
     init_guess = np.concatenate([np.linspace(0.1, 0.9, num_params), [asymptote_guess]])
     lbounds = [0.0]*num_params + [lower_bound]
     ubounds = [2.0]*num_params + [upper_bound]
+    # print("orig")
+    # print(init_guess)
+    # print(lbounds)
+    # print(ubounds)
+    # print(steps)
+    # print(decay_data)
 
     model = lambda x, *params: model_function(x, *params, mut=mut)
 
@@ -287,5 +293,144 @@ def get_single_decay_rate(decay_data, mut = 0.1, num_steps = 25):
     fitted_constant = params[-1]  # The second returned parameter
 
     return mean_params, fitted_constant  # Return full params for plotting
+
+def model_function_IK(x,*params,mut=0.1,y0=1):
+
+    """
+    This is the what we are fitting to (sum of exponentials).
+    It assumes a decay rate of 0.1 mutations per step.
+
+    x = steps
+    params = the output of the fitting function (get_single_decay_rate).
+    """
+    
+    num_params = 1
+    constant = params[-1]
+    params = params[:-1]
+    mut_curves = np.exp(-1.0*mut*x[:,None]*np.array(params)[None,:])
+    weights = np.linspace(0.1, 0.9, num_params)
+    weights = np.ones(num_params)
+    weights = weights / weights.sum()
+    sum_curves = np.sum(mut_curves * weights[None,:], axis = 1)
+    return sum_curves * (y0 - constant) + constant
+
+def get_single_decay_rate_IK(decay_data, mut = 0.1, num_steps = 25):
+
+    num_params = 1
+    decay_data = decay_data # /decay_data[0]
+
+    if isinstance(mut, (int, float, complex)) or jnp.ndim(mut) == 0:
+        steps = np.linspace(0,num_steps-1,num_steps)
+    else:
+        steps = mut
+
+    if mut is None:
+        mut = np.arange(len(decay_data))  # Default steps
+
+    # New: take last 20% for asymptote
+    asymptote_guess = decay_data[-int(np.round(0.2*len(decay_data))):].mean() # / decay_data[0]
+    lower_bound = 0.8*asymptote_guess # min(0.0, asymptote_guess - 0.2)
+    upper_bound = 1.2*asymptote_guess # max(1.1, asymptote_guess + 0.2)
+
+    # New: use gradient for rho
+    nd = 2
+    inds_a = np.arange(0,2*nd,1,dtype=int)
+    mid_ab = int(np.round(num_steps/2))
+    inds_b = np.arange(mid_ab-nd,mid_ab+nd+1,1,dtype=int)
+    y_a = decay_data[inds_a].mean()
+    y_b = decay_data[inds_b].mean()
+    if (y_a > asymptote_guess) and (y_b > asymptote_guess) and (y_a > y_b):
+        init_guess_rho = -np.log((y_b-asymptote_guess)/(y_a-asymptote_guess))/mid_ab/mut
+        if (init_guess_rho < 0.1) or (init_guess_rho > 2.5):
+            init_guess_rho = 0.6
+        init_guess = np.concatenate([[init_guess_rho], [asymptote_guess]])
+    else:
+        init_guess = np.concatenate([np.linspace(0.1, 0.9, num_params), [asymptote_guess]])
+    lbounds = [0.1]*num_params + [lower_bound]
+    ubounds = [3]*num_params + [upper_bound]
+
+    decay_start = decay_data[0]
+    model = lambda x, *params: model_function_IK(x, *params, mut=mut, y0=decay_start)
+
+    params, _ = curve_fit(model, steps, decay_data, p0=init_guess, maxfev=9000,
+                          ftol=1e-4, xtol=1e-5, bounds=(lbounds, ubounds))
+    mean_params = np.mean(params[:-1])
+    fitted_constant = params[-1]  # The second returned parameter
+
+    return mean_params, fitted_constant  # Return full params for plotting
+
+def model_function_IK_v2(x,*params,mut=0.1,fix_amplitude=False,F0=1):
+
+    """
+    Models a function y(x)+C*exp(-x*mut*rho)+c with 
+    rho = params[0]
+    C = params[1]
+    c = params[2]
+    if fix_amplitude=False, and
+    rho = params[0]
+    c = params[1]
+    and C=F0-c if fix_amplitude=True
+    """
+    rho = params[0]
+    c = params[-1]
+    C = params[1] if fix_amplitude==False else F0-c
+    return C*np.exp(-1.0*mut*x*rho)+c
+
+def get_single_decay_rate_IK_v2(decay_data, mut = 0.1, num_steps = 25, fix_amplitude=False):
+    if fix_amplitude:
+        F0 = decay_data[0]
+        # decay_data = decay_data[1:]
+        # steps = np.arange(1,num_steps)
+    else:
+        F0 = None
+    steps = np.arange(0,num_steps)
+    
+    relb = 0.9
+    # decay_data = decay_data/decay_data[0]
+    
+    # Asymptote
+    asymptote_guess = decay_data[-int(np.round(0.2*len(decay_data))):].mean() # / decay_data[0]
+    lb_asymptote = (1-np.sign(asymptote_guess)*relb)*asymptote_guess
+    ub_asymptote = (1+np.sign(asymptote_guess)*relb)*asymptote_guess
+    
+    # Amplitude
+    if not fix_amplitude:
+        amplitude_guess = decay_data[0]-asymptote_guess
+        lb_amplitude = (1-np.sign(amplitude_guess)*relb)*amplitude_guess
+        ub_amplitude = (1+np.sign(amplitude_guess)*relb)*amplitude_guess+0.1
+    
+    # Rate
+    rho_guess = 0.5
+    lb_rho = 0.1
+    ub_rho = 5
+    mid_ab = int(np.round(num_steps/2))
+    y_a = decay_data[0]
+    y_b = decay_data[mid_ab]
+    if (y_a > asymptote_guess) and (y_b > asymptote_guess) and (y_a > y_b):
+        rho_guess = -np.log((y_b-asymptote_guess)/(y_a-asymptote_guess))/mid_ab/mut
+        if (rho_guess < lb_rho) or (rho_guess > ub_rho):
+            rho_guess = 0.5*(lb_rho+ub_rho)
+    
+    if fix_amplitude:
+        init_guess = np.array([rho_guess, asymptote_guess])
+        lbounds = [lb_rho, lb_asymptote]
+        ubounds = [ub_rho, ub_asymptote]
+        # init_guess = np.array([0.1, decay_data[-3:].mean()/decay_data[0]])
+        # lbounds = [0, 0]
+        # ubounds = [2, 1.1]
+    else:
+        init_guess = np.array([rho_guess, amplitude_guess, asymptote_guess])
+        lbounds = [lb_rho, lb_amplitude, lb_asymptote]
+        ubounds = [ub_rho, ub_amplitude, ub_asymptote]
+
+    model = lambda x, *params: model_function_IK_v2(x, *params, mut=mut, fix_amplitude=fix_amplitude, F0=F0)
+    params, _ = curve_fit(model, steps, decay_data, p0=init_guess, maxfev=9000,
+                          ftol=1e-4, xtol=1e-5, bounds=(lbounds, ubounds))
+
+    rho = params[0]
+    c = params[-1]
+    C = params[1] if fix_amplitude==False else F0-c
+
+    return rho, C, c
 
 

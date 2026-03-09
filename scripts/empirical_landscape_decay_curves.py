@@ -125,7 +125,7 @@ def generate_decay_curve(ld, m,p=2500):
     else:
         all_starts = uniform_start_locs(ld).reshape(100,100,3)
 
-    all_starts = get_WT_starts(ld)
+    all_starts = [get_WT_starts(ld)]
 
     for starts in tqdm.tqdm(all_starts):
         def single_rep(start):
@@ -153,12 +153,15 @@ def generate_decay_curve(ld, m,p=2500):
 
 # GB1
 
+extra_run_str = "2" # Allows saving result to a different place, if desired. 
+sub_folder = "empirical_decay_curves/"
+sub_folder = ""
 print('Generating curves for GB1...')
 ld = GB1
 
 m = 0.1
 results = generate_decay_curve(ld = ld, m = m/4)
-with open(os.path.join(slide_data_dir, "empirical_decay_curves/decay_curves_gb1_m0.1_multistart_10000_uniform.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, f"{sub_folder}decay_curves_gb1_m0.1_multistart_10000_uniform{extra_run_str}.pkl"), "wb") as f:
     pickle.dump(np.array(results), f)
 
 # TrpB
@@ -168,7 +171,7 @@ ld = TrpB
 
 m = 0.1
 results = generate_decay_curve(ld = ld, m = m/4)
-with open(os.path.join(slide_data_dir, "empirical_decay_curves/decay_curves_trpb_m0.1_multistart_10000_uniform.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, f"{sub_folder}decay_curves_trpb_m0.1_multistart_10000_uniform{extra_run_str}.pkl"), "wb") as f:
     pickle.dump(np.array(results), f)
 
 # TEV
@@ -178,7 +181,7 @@ ld = TEV
 
 m = 0.1
 results = generate_decay_curve(ld = ld, m = m/4)
-with open(os.path.join(slide_data_dir, "empirical_decay_curves/decay_curves_tev_m0.1_multistart_10000_uniform.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, f"{sub_folder}decay_curves_tev_m0.1_multistart_10000_uniform{extra_run_str}.pkl"), "wb") as f:
     pickle.dump(np.array(results), f)
 
 # ParD3
@@ -188,5 +191,5 @@ ld = E3
 
 m = 0.1
 results = generate_decay_curve(ld = ld, m = m/3, p=60)
-with open(os.path.join(slide_data_dir, "empirical_decay_curves/decay_curves_pard3_m0.1_multistart_10000_uniform.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, f"{sub_folder}decay_curves_pard3_m0.1_multistart_10000_uniform{extra_run_str}.pkl"), "wb") as f:
     pickle.dump(np.array(results), f)

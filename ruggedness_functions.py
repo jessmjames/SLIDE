@@ -402,3 +402,20 @@ def get_fourier_decay(fourier_coeffs: np.array, A: int, N: int, is_squared: bool
     ind_max = np.argmax(np.abs(fourier_coeffs[1:])) + 1
     decay_rate = (A*ind_max)/(N*(A-1)) * (2 if is_squared else 1)
     return decay_rate
+
+def get_spectral_entropy(landscape,  remove_constant=True, on_gpu=False):
+    spectrum = get_landscape_spectrum(landscape, norm=True, remove_constant=remove_constant, on_gpu=on_gpu)
+    p = spectrum / sum(spectrum)
+    spectral_entropy = -np.sum(p * np.log(p + 1e-10)) / np.log(len(spectrum))
+    # spectral_entropy = -np.sum(spectrum * np.log(spectrum + 1e-10))
+    # print("Hello")
+    return spectral_entropy
+
+def get_dirichlet_metric(landscape, on_gpu=False):
+    spectrum = get_landscape_spectrum(landscape, norm=True, remove_constant=True, on_gpu=on_gpu)
+    A = landscape.shape[0]
+    N = len(landscape.shape)
+    d = N*(A-1)
+    indices = np.arange(1,N+1)
+    return np.sum(A * indices * spectrum) / np.sum(spectrum) / d
+    
