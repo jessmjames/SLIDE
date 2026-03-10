@@ -110,6 +110,155 @@ def build_empirical_landscape_function(landscape):
     return jax.jit(jax.vmap(get_fitness))
 
 
+### CODON MAPPING UTILITIES ----------------------------------------------------------------------------------------
+
+# Uses ordering [U, C, A, G] for nucleotide.
+
+GB1_acid_start = jnp.array([3, 17, 0, 3], dtype=jnp.int32)
+GB1_codon_start = jnp.array(
+    [3, 0, 0, 3, 0, 2, 3, 0, 3, 3, 0, 0], dtype=jnp.int32
+)
+
+CODON_MAPPER = jnp.array(
+    [
+        [[8, 18, 9, 7], [8, 18, 9, 7], [4, 18, -1, -1], [4, 18, -1, 10]],
+        [[4, 1, 11, 13], [4, 1, 11, 13], [4, 1, 14, 13], [4, 1, 14, 13]],
+        [[5, 19, 15, 18], [5, 19, 15, 18], [5, 19, 12, 13], [6, 19, 12, 13]],
+        [[3, 2, 17, 0], [3, 2, 17, 0], [3, 2, 16, 0], [3, 2, 16, 0]],
+    ],
+    dtype=jnp.int32,
+)
+
+INVERSE_CODON_MAPPER = jnp.array(
+    [
+        [3, 0, 3],  # 0: Trp (W)
+        [1, 0, 1],  # 1: Cys (C)
+        [3, 0, 1],  # 2: Arg (R) subset
+        [3, 0, 0],  # 3: Ser (S) subset
+        [0, 2, 0],  # 4: Tyr (Y)
+        [2, 0, 0],  # 5: His (H)
+        [2, 3, 0],  # 6: Gln (Q)
+        [0, 0, 3],  # 7: Phe (F)
+        [0, 0, 0],  # 8: Leu (L) subset
+        [0, 0, 2],  # 9: Leu (L) subset
+        [0, 3, 3],  # 10: Leu (L) subset
+        [1, 0, 2],  # 11: Pro (P)
+        [2, 2, 2],  # 12: Leu (L) subset
+        [1, 0, 3],  # 13: Pro (P) subset
+        [1, 2, 2],  # 14: Pro (P) subset
+        [2, 0, 2],  # 15: Arg (R) subset
+        [3, 2, 2],  # 16: Arg (R) subset
+        [3, 0, 2],  # 17: Arg (R) subset
+        [0, 0, 1],  # 18: Ser (S) subset
+        [2, 0, 1],  # 19: Arg (R) subset
+    ],
+    dtype=jnp.int32,
+)
+
+# Backward-compatible alias for the original typo.
+INVERSE_CODON_MAPER = INVERSE_CODON_MAPPER
+
+
+def inverse_codon(codon):
+    """
+    Returns the inverse (codon triplet) of an amino-acid index.
+    Returns [-1, -1, -1] for invalid indices (e.g., stop codons).
+    """
+    codon = jnp.asarray(codon)
+    max_index = INVERSE_CODON_MAPPER.shape[0] - 1
+    valid = (codon >= 0) & (codon <= max_index)
+    safe_codon = jnp.clip(codon, 0, max_index)
+    return jnp.where(valid[..., None], INVERSE_CODON_MAPPER[safe_codon], -1)
+
+
+def get_pre_defined_landscape_function_with_codon(landscape):
+    """
+    Looks up fitness values on a pre-defined landscape defined by amino acids,
+    using the codon look-up method. Assumes each dimension has size 20.
+    Stop codons (index -1) are mapped to min fitness.
+    """
+    n = len(landscape.shape)
+    min_fitness = jnp.min(landscape)
+    buffered_landscape = jnp.pad(landscape, [(0, 1)] * n, constant_values=min_fitness)
+
+    def get_codon(i):
+        return CODON_MAPPER[tuple(i)]
+
+    vmapped_get_codons = jax.jit(jax.vmap(get_codon))
+
+    def get_fitties(params):
+        parries_reshaped = jnp.reshape(params, (-1, 3))
+        codon_set = vmapped_get_codons(parries_reshaped)
+        return buffered_landscape[tuple(codon_set)]
+
+    return jax.jit(jax.vmap(get_fitties))
+
+
+def get_pd_landscape_function_codon_masked(landscape, mask, replacement):
+    """
+    Like get_pre_defined_landscape_function_with_codon but with a site mask
+    applied before fitness lookup.
+    """
+    n = len(landscape.shape)
+    min_fitness = jnp.min(landscape)
+    buffered_landscape = jnp.pad(landscape, [(0, 1)] * n, constant_values=min_fitness)
+
+    def get_codon(i):
+        return CODON_MAPPER[tuple(i)]
+
+    vmapped_get_codons = jax.jit(jax.vmap(get_codon))
+
+    def get_fitties(params):
+        new_params = jnp.where(mask, replacement, params)
+        parries_reshaped = jnp.reshape(new_params, (-1, 3))
+        codon_set = vmapped_get_codons(parries_reshaped)
+        return buffered_landscape[tuple(codon_set)]
+
+    return jax.jit(jax.vmap(get_fitties))
+
+
+def convert_landscape_function_to_codon(
+    landscape_function,
+    stop_codon_strategy="min_fitness",
+    stop_codon_value=None,
+    stop_codon_index=20,
+    sample_size=256,
+    sample_extra=0.0,
+    rng=jr.PRNGKey(0),
+):
+    """
+    Converts a landscape function defined on amino acids to one defined on codons.
+
+    stop_codon_strategy options:
+      min_fitness: uses the minimum fitness (estimated by sampling if stop_codon_value not provided).
+      fill_fitness: uses stop_codon_value for any sequence containing a stop codon.
+      another_amino_acid: treats stop codons as a 21st amino acid (index stop_codon_index).
+      sample_min_fitness: samples values, takes the min, adds sample_extra.
+    """
+    valid_strategies = {"min_fitness", "fill_fitness", "another_amino_acid", "sample_min_fitness"}
+    if stop_codon_strategy not in valid_strategies:
+        raise ValueError(
+            f"stop_codon_strategy must be one of {sorted(valid_strategies)} (got {stop_codon_strategy})."
+        )
+    if stop_codon_strategy == "fill_fitness" and stop_codon_value is None:
+        raise ValueError("stop_codon_value must be provided for fill_fitness.")
+
+    def convert_gene(gene):
+        # gene shape: (n_sites * 3,) nucleotides
+        reshaped = gene.reshape(-1, 3)
+        codon_set = CODON_MAPPER[tuple(reshaped.T)]
+        return codon_set
+
+    vmapped_convert_gene = jax.jit(jax.vmap(convert_gene))
+
+    def codon_landscape_function(pop):
+        # pop: (popsize, n_sites * 3) nucleotides
+        codon_genes = vmapped_convert_gene(pop)
+        return landscape_function(codon_genes)
+
+    return codon_landscape_function
+
+
 def build_NK_landscape_function(rng, N, K, fitness_distribution=jr.normal):
     """
     Looks up fitness values on an NK landscape.
@@ -177,6 +326,44 @@ def build_mutation_function(mutation_chance, num_options=2):
         mut_delta = jr.randint(r2, pshape, 1, num_options)
         return (pop + (has_mutation*mut_delta)) % num_options
     return mutation_function
+
+
+def build_custom_mutation_function(mutation_chance, transition_matrix, A=None):
+    """
+    Generates a mutation function that uses a custom transition matrix
+    (e.g. empirical nucleotide substitution rates).
+
+    Parameters:
+    - mutation_chance: Probability of a mutation per site.
+    - transition_matrix: (A x A) array of transition probabilities between states.
+    - A: Number of states (inferred from transition_matrix if not provided).
+
+    Returns:
+    - Function that applies mutations to a whole population of sequences.
+    """
+    if A is None:
+        A = transition_matrix.shape[0]
+
+    transition_matrix = jnp.array(transition_matrix)
+
+    def mutation_function(rng, pop):
+        r1, r2 = jr.split(rng, 2)
+        pshape = pop.shape
+        has_mutation = jr.bernoulli(r1, mutation_chance, pshape)
+
+        flat_pop = pop.flatten()
+        pop_size = flat_pop.shape[0]
+
+        def mutate_site(rng, aa):
+            return jr.choice(rng, jnp.arange(A), p=transition_matrix[aa])
+
+        flat_mutated_pop = jax.vmap(mutate_site)(jr.split(r2, pop_size), flat_pop)
+        mutated_pop = flat_mutated_pop.reshape(pshape)
+
+        return jnp.where(has_mutation, mutated_pop, pop)
+
+    return mutation_function
+
 
 ### SELECTION FUNCTION ---------------------------------------------------------------------------------------------
 
