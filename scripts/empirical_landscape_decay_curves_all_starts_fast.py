@@ -110,26 +110,26 @@ with open(os.path.join(landscape_dir, 'E3_landscape_array.pkl'), 'rb') as f:
 
 print('Generating curves for GB1...')
 results = generate_decay_curve(ld=GB1, m=0.1/4)
-with open(os.path.join(slide_data_dir, 'decay_curves_gb1_m0.1_all_starts_fast.pkl'), 'wb') as f:
+with open(os.path.join(slide_data_dir, 'decay_curves_gb1_m0.1_all_starts.pkl'), 'wb') as f:
     pickle.dump(results, f)
 
 # TrpB
 
 print('Generating curves for TrpB...')
 results = generate_decay_curve(ld=TrpB, m=0.1/4)
-with open(os.path.join(slide_data_dir, 'decay_curves_trpb_m0.1_all_starts_fast.pkl'), 'wb') as f:
+with open(os.path.join(slide_data_dir, 'decay_curves_trpb_m0.1_all_starts.pkl'), 'wb') as f:
     pickle.dump(results, f)
 
 # TEV
 
 print('Generating curves for TEV...')
 results = generate_decay_curve(ld=TEV, m=0.1/4)
-with open(os.path.join(slide_data_dir, 'decay_curves_tev_m0.1_all_starts_fast.pkl'), 'wb') as f:
+with open(os.path.join(slide_data_dir, 'decay_curves_tev_m0.1_all_starts.pkl'), 'wb') as f:
     pickle.dump(results, f)
 
 # ParD3
 
 print('Generating curves for ParD3...')
 results = generate_decay_curve(ld=E3, m=0.1/3, p=60)
-with open(os.path.join(slide_data_dir, 'decay_curves_pard3_m0.1_all_starts_fast.pkl'), 'wb') as f:
+with open(os.path.join(slide_data_dir, 'decay_curves_pard3_m0.1_all_starts.pkl'), 'wb') as f:
     pickle.dump(results, f)
