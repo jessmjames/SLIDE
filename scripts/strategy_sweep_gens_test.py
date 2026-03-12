@@ -120,7 +120,7 @@ def get_multi_sweep_NK(base_chances, thresholds, splits, popsize, num_alleles = 
                                     selection_params=params,
                                     popsize=int(popsize/split_size),
                                     mut_chance=0.1/N,
-                                    num_steps=1000,
+                                    num_steps=50,
                                     num_reps=split_size
                                     )
                     return run['fitness'][:,:,-1].max()
@@ -163,5 +163,5 @@ p=1200
 sweepy_NK = get_multi_sweep_NK(base_chances, thresholds, splits, p, num_alleles=20, num_reps=10, num_landscapes=10)
 results=[[sweepy_NK(ii, 10, i).mean(axis=0) for i in [1,4,8]] for ii in jr.split(jr.PRNGKey(42), 10)]
 
-with open(os.path.join(slide_data_dir, "N10_strategy_sweep_1000_gens.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, "N10_strategy_sweep_10_gens_50steps.pkl"), "wb") as f:
     pickle.dump(np.array(results), f)
