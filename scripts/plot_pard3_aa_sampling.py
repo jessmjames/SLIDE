@@ -44,29 +44,32 @@ trajectories = np.round(np.logspace(0, np.log10(8000), 11)).astype(int)
 N_BOOT = 1000
 EPS = 1e-8
 
-def run_bootstrap(replace):
+Gmu = h ** 2   # (total_starts, 25) — square of mean-over-seeds, matching t_script
+
+def run_bootstrap(replace, fix_amplitude):
     rng = np.random.default_rng(0)
     traj_results = []
-    for traj_number in tqdm.tqdm(trajectories, desc=f'replace={replace}'):
+    for traj_number in tqdm.tqdm(trajectories, desc=f'replace={replace} fix_amp={fix_amplitude}'):
         boot_vals = []
         for _ in range(N_BOOT):
             idx    = rng.choice(total_starts, size=int(traj_number), replace=replace)
-            sample = (h[idx] ** 2).mean(axis=0)
+            sample = Gmu[idx].mean(axis=0)
             sample = sample / (np.abs(sample[0]) + EPS)
-            rho    = get_single_decay_rate_IK_v2(sample)[0] / 2
+            rho    = get_single_decay_rate_IK_v2(sample, mut=0.1, num_steps=25,
+                                                  fix_amplitude=fix_amplitude)[0] / 2
             boot_vals.append(rho)
         traj_results.append(np.array(boot_vals))
     return traj_results
 
-results_with    = run_bootstrap(replace=True)
-results_without = run_bootstrap(replace=False)
+results_orig    = run_bootstrap(replace=True,  fix_amplitude=False)   # original pipeline
+results_tscript = run_bootstrap(replace=False, fix_amplitude=True)    # t_script pipeline
 
 # Plot
 fig, ax = plt.subplots(figsize=(6, 4), dpi=150)
 
 for results, label, color in [
-    (results_with,    'replace=True',  '#4477AA'),
-    (results_without, 'replace=False', '#EE6677'),
+    (results_orig,    'replace=True, fix_amp=False (original)', '#4477AA'),
+    (results_tscript, 'replace=False, fix_amp=True (t_script)', '#EE6677'),
 ]:
     means = np.array([r.mean() for r in results])
     stds  = np.array([r.std()  for r in results])
