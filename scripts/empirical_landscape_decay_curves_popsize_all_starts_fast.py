@@ -110,9 +110,10 @@ TrpB_results = []
 TEV_results = []
 ParD3_results = []
 
-print(np.linspace(25,2500,10))
+popsizes = np.logspace(np.log10(5), np.log10(1000), num=10)[::-1]
+print(popsizes)
 
-for popsize in np.linspace(25,2500,5)[::-1]:
+for popsize in popsizes:
 
     print(popsize)
 
@@ -156,14 +157,14 @@ for popsize in np.linspace(25,2500,5)[::-1]:
     ParD3_results.append(results)
 
 
-with open(os.path.join(slide_data_dir, f"decay_curves_GB1_m0.1_multistart_all_starts_multi_popsize3.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, f"decay_curves_GB1_m0.1_multistart_all_starts_multi_popsize4.pkl"), "wb") as f:
     pickle.dump(np.array(GB1_results[::-1]), f)
 
-with open(os.path.join(slide_data_dir, f"decay_curves_TrpB_m0.1_multistart_all_starts_multi_popsize3.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, f"decay_curves_TrpB_m0.1_multistart_all_starts_multi_popsize4.pkl"), "wb") as f:
     pickle.dump(np.array(TrpB_results[::-1]), f)
 
-with open(os.path.join(slide_data_dir, f"decay_curves_TEV_m0.1_multistart_all_starts_multi_popsize3.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, f"decay_curves_TEV_m0.1_multistart_all_starts_multi_popsize4.pkl"), "wb") as f:
     pickle.dump(np.array(TEV_results[::-1]), f)
 
-with open(os.path.join(slide_data_dir, f"decay_curves_ParD3_m0.1_multistart_all_starts_multi_popsize3.pkl"), "wb") as f:
+with open(os.path.join(slide_data_dir, f"decay_curves_ParD3_m0.1_multistart_all_starts_multi_popsize4.pkl"), "wb") as f:
     pickle.dump(np.array(ParD3_results[::-1]), f)
