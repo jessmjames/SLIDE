@@ -9,15 +9,15 @@ trajectories are needed to accurately estimate rho.
 
 Usage
 -----
-  python compute_trajectory_subsampling.py                  # baseline (aa_uniform)
+  python compute_trajectory_subsampling.py                       # baseline (aa_uniform, 25 steps)
   python compute_trajectory_subsampling.py aa_uniform
-  python compute_trajectory_subsampling.py nuc_symmetric
-  python compute_trajectory_subsampling.py nuc_asymmetric
-  python compute_trajectory_subsampling.py codon
+  python compute_trajectory_subsampling.py nuc_uniform
+  python compute_trajectory_subsampling.py nuc_uniform --steps 75
 
 Output
 ------
-  plot_data/trajectory_subsampling_{model}.pkl
+  plot_data/trajectory_subsampling_{model}.pkl          (25 steps)
+  plot_data/trajectory_subsampling_{model}_75steps.pkl  (75 steps)
 
 where model is the mutation model name (e.g. 'aa_uniform').
 The baseline model also writes plot_data/trajectory_subsampling.pkl
@@ -44,13 +44,18 @@ os.makedirs(plot_data_dir, exist_ok=True)
 # Configuration
 # ---------------------------------------------------------------------------
 
-MODEL = sys.argv[1] if len(sys.argv) > 1 else 'aa_uniform'
+MODEL     = sys.argv[1] if len(sys.argv) > 1 else 'aa_uniform'
+NUM_STEPS = 25
+if '--steps' in sys.argv:
+    NUM_STEPS = int(sys.argv[sys.argv.index('--steps') + 1])
 
-# Filename suffix: baseline uses the old naming convention, others use the new one.
+STEPS_SUFFIX = f'_{NUM_STEPS}steps' if NUM_STEPS != 25 else ''
+
+# Filename suffix for input decay curve files.
 if MODEL == 'aa_uniform':
-    suffix = 'all_starts'
+    suffix = f'aa_uniform_m0.1_all_starts{STEPS_SUFFIX}'
 else:
-    suffix = f'{MODEL}_m0.1_all_starts'
+    suffix = f'{MODEL}_m0.1_all_starts{STEPS_SUFFIX}'
 
 LANDSCAPES = ['gb1', 'trpb', 'tev', 'pard3']
 
@@ -74,10 +79,7 @@ print(f"Loading decay curves for model: {MODEL}")
 
 decay = {}
 for ld_name in LANDSCAPES:
-    if MODEL == 'aa_uniform':
-        fname = f"decay_curves_{ld_name}_m0.1_all_starts.pkl"
-    else:
-        fname = f"decay_curves_{ld_name}_{MODEL}_m0.1_all_starts.pkl"
+    fname = f"decay_curves_{ld_name}_{suffix}.pkl"
     fpath = os.path.join(slide_data_dir, fname)
     with open(fpath, 'rb') as f:
         decay[ld_name] = pickle.load(f)
@@ -85,14 +87,14 @@ for ld_name in LANDSCAPES:
 
 # ---------------------------------------------------------------------------
 # Compute empirical heterogeneity
-# Shape of each decay array: (-1, 100, 10, 25)
-# .mean(axis=2) → (-1, 100, 25)   (mean over reps)
-# .reshape(-1, 25) → (total_starts, 25)
+# Shape of each decay array: (-1, 100, 10, NUM_STEPS)
+# .mean(axis=2) → (-1, 100, NUM_STEPS)  (mean over reps)
+# .reshape(-1, NUM_STEPS) → (total_starts, NUM_STEPS)
 # ---------------------------------------------------------------------------
 
 print("Computing empirical heterogeneity...")
 heterogeneity = {
-    ld_name: decay[ld_name].mean(axis=2).reshape(-1, 25)
+    ld_name: decay[ld_name].mean(axis=2).reshape(-1, NUM_STEPS)
     for ld_name in LANDSCAPES
 }
 
@@ -121,7 +123,7 @@ for ld_name in LANDSCAPES:
                 sample = sample / EPS
             else:
                 sample = sample / sample[0]
-            rho = get_single_decay_rate_IK_v2(sample)[0] / 2
+            rho = get_single_decay_rate_IK_v2(sample, num_steps=NUM_STEPS)[0] / 2
             boot_vals.append(rho)
 
         traj_results.append(np.array(boot_vals))
@@ -132,7 +134,7 @@ for ld_name in LANDSCAPES:
 # Save
 # ---------------------------------------------------------------------------
 
-out_path = os.path.join(plot_data_dir, f"trajectory_subsampling_{MODEL}.pkl")
+out_path = os.path.join(plot_data_dir, f"trajectory_subsampling_{MODEL}{STEPS_SUFFIX}.pkl")
 with open(out_path, 'wb') as f:
     pickle.dump(ld_results, f)
 print(f"Saved → {out_path}")

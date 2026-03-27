@@ -101,25 +101,34 @@ def spectral_rho_nuc(f_nuc: np.ndarray, T: np.ndarray) -> float:
     Spectral Dirichlet rho for a nucleotide-space landscape under per-site
     transition matrix T (shape 4×4, rows sum to 1).
 
+    Works for both symmetric and asymmetric T.
+
     Derivation
     ----------
     For a product mutation model (T applied independently at each site), the
     graph-Laplacian weight for pattern (k_1,...,k_n) in T's eigenbasis is:
 
-        w_{k_1,...,k_n} = sum_j (1 - mu_{k_j})
+        w_{k_1,...,k_n} = sum_j Re(1 - mu_{k_j})
 
     where mu_{k_j} is the k_j-th eigenvalue of T (sorted descending; mu_0 = 1).
-    Trivial modes (k_j = 0) contribute 0.  The rho is:
 
-        rho = sum_k w_k * E_k  /  (n_nuc * sum_k E_k)
+    DC extraction
+    -------------
+    For any row-stochastic T, the right eigenvector for mu_0=1 is the all-ones
+    vector, so the first column of Q is all ones and the first row of Q^{-1} is
+    the stationary distribution π of T.  Therefore f_hat[(0,...,0)] from the
+    tensor-product transform equals E_π[f] — the stationary-weighted mean.
+    We zero out this DC component explicitly rather than pre-subtracting f.mean()
+    (which would only be correct for uniform π).  This makes ρ consistent with
+    c_true computed using the same stationary distribution.
 
-    For the uniform A=4 case (mu_0=1, mu_{1,2,3} = -1/3) this reduces to
-    get_dirichlet_metric(f_nuc), confirming the normalisation.
+    For asymmetric T, Laplacian weights use Re(1 - mu_k), the first-order
+    approximation for directed graphs (see Eq 19 in manuscript).
 
     Parameters
     ----------
     f_nuc : (4,)*n_nuc  float array
-    T     : (4, 4) transition matrix (row-stochastic)
+    T     : (4, 4) transition matrix (row-stochastic, symmetric or asymmetric)
 
     Returns
     -------
@@ -129,25 +138,29 @@ def spectral_rho_nuc(f_nuc: np.ndarray, T: np.ndarray) -> float:
     n_nuc     = len(nuc_shape)
 
     f = f_nuc.astype(np.float64)
-    f = f - f.mean()                     # remove DC; E_DC = 0 after this
+    # Do NOT subtract f.mean() — the DC component is extracted below.
 
     # Eigendecompose per-site T:  T = Q diag(mu) Q^{-1}
     eigenvalues, Q = np.linalg.eig(T)
-    order       = np.argsort(-np.real(eigenvalues))   # descending (mu=1 first)
+    order       = np.argsort(-np.real(eigenvalues))   # descending (mu_0=1 first)
     eigenvalues = eigenvalues[order]
     Q           = Q[:, order]
     Q_inv       = np.linalg.inv(Q)
 
     # Generalised Fourier transform: f_hat = (Q_inv)^{⊗n_nuc} @ f
+    # f_hat[(0,...,0)] = E_π[f]  (first row of Q_inv is stationary dist π)
     f_hat = f.astype(np.complex128)
     for site in range(n_nuc):
         f_hat = np.tensordot(Q_inv, f_hat, axes=([1], [site]))
         f_hat = np.moveaxis(f_hat, 0, site)
 
-    E = np.abs(f_hat) ** 2              # energy at each eigenbasis point
+    # Zero out DC component (removes stationary mean, consistent with c_true)
+    f_hat[(0,) * n_nuc] = 0.0
 
-    # Laplacian weight: sum_j (1 - mu_{k_j})
-    # Trivial mode k_j=0 → (1-mu_0)=0, contributes nothing automatically.
+    E = np.abs(f_hat) ** 2              # energy at each eigenbasis point (real)
+
+    # Laplacian weight: sum_j Re(1 - mu_{k_j})
+    # DC mode k_j=0 → Re(1-mu_0)=0, contributes nothing (already zeroed above).
     one_minus_mu = np.real(1.0 - eigenvalues)          # shape (4,)
     L = np.zeros(nuc_shape, dtype=np.float64)
     for site in range(n_nuc):
@@ -177,22 +190,23 @@ e_coli_raw    = np.load(os.path.join(matrix_dir, 'normed_e_coli_matrix.npy'))
 h_sapiens_sym = (h_sapiens_raw + h_sapiens_raw.T) / 2
 h_sapiens_sym = h_sapiens_sym / h_sapiens_sym.sum(axis=1, keepdims=True)
 
+e_coli_sym = (e_coli_raw + e_coli_raw.T) / 2
+e_coli_sym = e_coli_sym / e_coli_sym.sum(axis=1, keepdims=True)
+
 # Uniform 4-state transition matrix: each site mutates to each of the other
 # 3 states with equal probability (mu_0=1, mu_{1,2,3} = -1/3).
 # This is the eigenbasis of the standard Fourier (DFT) transform on Z_4^n.
 nuc_uniform = (np.ones((4, 4)) - np.eye(4)) / 3.0
 
-# NOTE: spectral rho is only mathematically valid for SYMMETRIC T.
-# For symmetric T, eigenvectors are orthonormal (spectral theorem), so the
-# energy decomposition |f_hat_k|^2 is well-defined.
-# For asymmetric T (e.g. nuc_e_coli), eigenvectors are not orthonormal and
-# the Dirichlet form requires a π-weighted inner product — the formula below
-# is not applicable.  nuc_e_coli is therefore excluded from spectral analysis.
+# nuc_e_coli uses the raw asymmetric matrix; spectral_rho_nuc handles it via
+# DC extraction (f_hat[(0,...,0)] = E_π[f] for the raw stationary distribution),
+# making ρ consistent with c_true computed under the same stationary distribution.
 MODELS = [
-    ('aa_uniform',        None,          True),   # (name, T, is_symmetric)
-    ('nuc_uniform',       nuc_uniform,   True),
-    ('nuc_h_sapiens_sym', h_sapiens_sym, True),
-    ('nuc_e_coli',        e_coli_raw,    False),  # asymmetric — spectral N/A
+    ('aa_uniform',        None),
+    ('nuc_uniform',       nuc_uniform),
+    ('nuc_h_sapiens_sym', h_sapiens_sym),
+    ('nuc_e_coli_sym',    e_coli_sym),
+    ('nuc_e_coli',        e_coli_raw),   # asymmetric — corrected DC extraction
 ]
 
 results = {}   # {landscape_name: {model_name: rho}}
@@ -201,13 +215,10 @@ for ld_name, (ld, n_aa, n_nuc) in landscapes.items():
     print(f"\n--- {ld_name} (n_aa={n_aa}, n_nuc={n_nuc}) ---")
     results[ld_name] = {}
 
-    for model_name, T, is_sym in MODELS:
+    for model_name, T in MODELS:
         if model_name == 'aa_uniform':
             rho = get_dirichlet_metric(ld)
             print(f"  {model_name:<22s} rho = {rho:.4f}  (AA Dirichlet metric)")
-        elif not is_sym:
-            rho = float('nan')
-            print(f"  {model_name:<22s} rho = N/A   (asymmetric T — spectral not valid)")
         else:
             print(f"  {model_name:<22s}  building nuc landscape...", end=' ', flush=True)
             f_nuc = build_nuc_landscape(ld, n_aa)
@@ -221,7 +232,7 @@ for ld_name, (ld, n_aa, n_nuc) in landscapes.items():
 # Print summary table
 # ---------------------------------------------------------------------------
 
-model_labels = [m for m, _, _ in MODELS]
+model_labels = [m for m, _ in MODELS]
 print("\n\n=== Spectral rho summary ===\n")
 header = f"{'Landscape':<10}" + "".join(f"{m:<24}" for m in model_labels)
 print(header)

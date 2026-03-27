@@ -15,7 +15,7 @@ import selection_function_library as slct
 import tqdm
 
 # Define the SLIDE_data path
-slide_data_dir = "/home/jess/Documents/SLIDE_data"
+slide_data_dir = "./"
 
 def directedEvolution(rng,
                       selection_strategy, 

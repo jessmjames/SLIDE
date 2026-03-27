@@ -15,7 +15,7 @@ import selection_function_library as slct
 import tqdm
 
 # Define the SLIDE_data path
-slide_data_dir = "/home/jess/Documents/SLIDE_data"
+slide_data_dir = "./"
 
 def directedEvolution(s_rng, 
                       rng_rep,
@@ -106,12 +106,12 @@ with tqdm.tqdm(total=total_iterations, desc="Overall Progress") as pbar:
                                                 selection_params = params,
                                                 popsize=int(p/s),
                                                 mut_chance=m/int(nks[0]),
-                                                num_steps=25,
+                                                num_steps=100,
                                                 num_reps=1,
                                                 average=True)
                 
                         #split_results.append(run['fitness'].max(axis=2).mean(axis=0)[-1])
-                        return run['fitness'][:,:,-1].max(axis=1).mean()
+                        return run['fitness'][:,-1,:].max(axis=1).mean()
                 
                     split_results = jax.vmap(single_s)(split_rngs)
 
@@ -123,6 +123,6 @@ with tqdm.tqdm(total=total_iterations, desc="Overall Progress") as pbar:
         
                 pbar.update(1)
 
-file_path = os.path.join(slide_data_dir, "large_strategy_sweep.pkl")
+file_path = os.path.join(slide_data_dir, "large_strategy_sweep_100.pkl")
 with open(file_path, "wb") as f:
     pickle.dump(sweep_results, f)
