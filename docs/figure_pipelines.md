@@ -78,14 +78,6 @@ Input data requirements TBD when rationalising into per-figure folders.
 
 ---
 
-## Figure S4
-
-**Output:** `figures/strategy_prediction_25gens.pdf`, `_50gens.pdf`, `_100gens.pdf`
-**Source:** `ruggedness_figures_data_processing_IK.ipynb` on `main`
-❓ Confirm — plotting may actually live in `ruggedness_figures_plots_IK.ipynb` instead.
-
----
-
 ## Figure S1: `alt_landscapes.pdf`
 
 **Source:** `ruggedness_figures_data_processing.ipynb` on `rebuttals` branch
