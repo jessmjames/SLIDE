@@ -7,6 +7,7 @@ Detailed documentation lives in `docs/`. Read the relevant file when you need sp
 | File | Contents |
 |------|----------|
 | [docs/figure_pipelines.md](docs/figure_pipelines.md) | Step-by-step pipelines to regenerate all figures from raw simulations |
+| [docs/rationalisation_checklist.md](docs/rationalisation_checklist.md) | Checklist for rationalising codebase into per-figure 3-file structure |
 
 ## Repo structure (brief)
 
