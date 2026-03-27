@@ -34,12 +34,12 @@ resolved by `slide_config.get_slide_data_dir()`.
 | 5E | `figures/TrpB_decay.pdf`, `figures/TrpB_strategy_space.pdf`, `figures/TrpB_DE.pdf` | `ruggedness_figures_plots.ipynb` | main | |
 | 5F | `figures/TEV_decay.pdf`, `figures/TEV_strategy_space.pdf`, `figures/TEV_DE.pdf` | `ruggedness_figures_plots.ipynb` | main | |
 | 5G | `figures/ParD3_decay.pdf`, `figures/ParD3_strategy_space.pdf`, `figures/TEV_DE.pdf` | `ruggedness_figures_plots.ipynb` | main | |
-| 6 | `figures/graph_mutation_model.pdf` | `scripts/plot_mutation_model_comparison.py` | seb_final_plots | ❓ Exact output filename needs tracing — script currently outputs `accuracy_over_sampling_mutation_models_v2.pdf` on main |
+| 6 | `figures/graph_mutation_model.pdf` | `scripts/plot_mutation_model_comparison.py` | seb_final_plots | ⚠️ `graph_mutation_model.pdf` not yet generated — script currently outputs `accuracy_over_sampling_nuc_models.pdf`. Rename/output needs implementing. |
 | 7 | `figures/NK_spectra.pdf` | `ruggedness_figures_plots.ipynb` | main | |
-| S1 | ❓ unknown | ❓ unknown | ❓ unknown | ❓ Needs finding. Description: "Strategy space for landscapes of increasing ruggedness" — compares Stochastic block, Rough Mount Fuji, NK models at low/mid/high ruggedness with decay curves |
+| S1 | `figures/alt_landscapes.pdf` | `ruggedness_figures_data_processing.ipynb` | rebuttals | See detailed pipeline below |
 | S2 | `figures/rho_accuracy_mutation_models.pdf` | `scripts/plot_rho_accuracy_mutation_models.py` | seb_final_plots (untracked) | See detailed pipeline below |
 | S3 | `figures/decay_curves_nuc_75steps.pdf` | `scripts/plot_decay_curves_nuc.py` | seb_final_plots (untracked) | See detailed pipeline below |
-| S4 | `figures/strategy_prediction_25gens.pdf`, `_50gens.pdf`, `_100gens.pdf` | `ruggedness_figures_data_processing_IK.ipynb` (❓ or `plots_IK`?) | main | ❓ Confirm which notebook — data_processing_IK seems unlikely for a plot |
+| S4 | `figures/strategy_prediction_25gens.pdf`, `_50gens.pdf`, `_100gens.pdf` | `ruggedness_figures_data_processing_IK.ipynb` | main | ⚠️ Plotting code not found on any branch — data is loaded in the notebook but no savefig calls exist. Needs implementing or locating. |
 
 ---
 
@@ -86,14 +86,54 @@ Input data requirements TBD when rationalising into per-figure folders.
 
 ---
 
+## Figure S1: `alt_landscapes.pdf`
+
+**Source:** `ruggedness_figures_data_processing.ipynb` on `rebuttals` branch
+
+Compares NK, Rough Mount Fuji, and Stochastic Block landscape models at
+low/mid/high ruggedness levels, with strategy space plots and decay curves for each.
+
+### Upstream simulation scripts (all on `rebuttals`/`even_messier`):
+
+```bash
+python scripts/decay_curve_sweep_alt_landscapes_NK.py
+python scripts/decay_curve_sweep_alt_landscapes_RMF.py
+python scripts/decay_curve_sweep_alt_landscapes_block.py
+python scripts/strategy_sweep_alt_landscapes_NK.py
+python scripts/strategy_sweep_alt_landscapes_RMF.py
+python scripts/strategy_sweep_alt_landscapes_block.py
+```
+
+Produces in `SLIDE_data/`:
+- `landscape_comparsion_strategy_sweep_{NK,RMF,block}.pkl`
+- `alt_landscapes_decay_curve_sweep_{NK,RMF,blocks}.pkl`
+
+### Plot
+
+Run the relevant cell in `ruggedness_figures_data_processing.ipynb` (on `rebuttals`):
+```python
+plt.savefig('figures/alt_landscapes.pdf', dpi=300)
+```
+
+---
+
+## Figure S4: `strategy_prediction_{g}gens.pdf`
+
+**Output:** `figures/strategy_prediction_25gens.pdf`, `_50gens.pdf`, `_100gens.pdf`
+
+⚠️ Plotting code not found on any branch. The generation-varying strategy data
+is loaded in `ruggedness_figures_data_processing_IK.ipynb` (main) but no savefig
+calls exist yet. Needs implementing.
+
+---
+
 ## Figure 6: `graph_mutation_model.pdf`
 
-**Script:** `scripts/plot_mutation_model_comparison.py` (`seb_final_plots`)
+**Script:** `scripts/plot_mutation_model_comparison.py` (`seb_final_plots` working tree)
 
-❓ The exact output filename needs tracing — on `main` the script outputs
-`accuracy_over_sampling_mutation_models_v2.pdf`; working-tree version on
-`seb_final_plots` outputs `accuracy_over_sampling_nuc_models{STEPS_SUFFIX}.pdf`.
-`graph_mutation_model.pdf` may be a different code path or a renamed output.
+⚠️ The script currently saves as `accuracy_over_sampling_nuc_models.pdf`.
+`graph_mutation_model` appears in the script only as a comment for panel sizing.
+The output filename in the script needs updating to `graph_mutation_model.pdf`.
 
 The related figure `accuracy_over_sampling_nuc_models_75steps.pdf` shares the
 same upstream data but is a different panel layout (nuc models only, 75 steps).
