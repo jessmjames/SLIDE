@@ -12,7 +12,7 @@ See `docs/figure_pipelines.md` for full pipeline details per figure.
 ## Quick fixes (do first)
 
 - [x] **Fig 6** — change `savefig` output in `scripts/plot_mutation_model_comparison.py` from `accuracy_over_sampling_nuc_models.pdf` to `graph_mutation_model.pdf`
-- [x] **S4** — plotting extracted into `figures_src/figure_S4_strategy_gens/3_plot.py` (scripts, not notebook)
+- ⚠️ **S4** — source unclear; see note in `docs/figure_pipelines.md`. Awaiting confirmation from Jess.
 - [x] **4C** — violin plot extracted into `figures_src/figure_4C_repeat_heterogeneity/3_plot.py` (scripts, not notebook)
 
 ---
@@ -25,7 +25,7 @@ These are closest to the target structure — just need organising into folders.
 - [x] **S3** `decay_curves_nuc_75steps.pdf` — `figures_src/figure_S3_decay_curves_nuc/`
 - [x] **Fig 6** `graph_mutation_model.pdf` — `figures_src/figure_6_mutation_model/`
 - [x] **Fig 4C** `repeat_heterogeneity.pdf` — `figures_src/figure_4C_repeat_heterogeneity/`
-- [x] **S4** `strategy_prediction_{25,50,100}gens.pdf` — `figures_src/figure_S4_strategy_gens/`
+- ⚠️ **S4** `strategy_prediction_{g}gens.pdf` — source disputed; see `docs/figure_pipelines.md`. Current `figures_src/figure_S4_strategy_gens/3_plot.py` outputs heatmaps which may be wrong.
 
 ---
 
@@ -41,7 +41,7 @@ write the three scripts.
 - [ ] **Fig 4G** (empirical ruggedness comparison IK) — `ruggedness_figures_plots_IK.ipynb`
 - [ ] **Fig 5A–5G** (strategy prediction + DE) — `ruggedness_figures_plots.ipynb`
 - [ ] **Fig 7** (NK spectra) — `ruggedness_figures_plots.ipynb`
-- [x] **S4** (strategy prediction over generations) — `figures_src/figure_S4_strategy_gens/`
+- ⚠️ **S4** (source unclear — awaiting Jess) — `figures_src/figure_S4_strategy_gens/` exists but plotting may be wrong
 
 ---
 
