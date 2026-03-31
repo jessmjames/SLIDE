@@ -45,7 +45,7 @@ write the three scripts.
 - [ ] **Fig 4G** (empirical ruggedness comparison IK) — `ruggedness_figures_plots_IK.ipynb`
 - [x] **Fig 5A** `strategy_prediction.pdf` — `figures_src/figure_5A_strategy_prediction/` ✓ verified
 - [ ] **Fig 5B–5G** (NK DE + empirical DE) — `ruggedness_figures_plots.ipynb`
-- ⚠️ **Fig 7** `NK_spectra.pdf` — `figures_src/figure_7_NK_spectra/` extracted but **cannot run**: `np.concat` bug in `get_single_decay_rate` (cell 80 of `ruggedness_figures_plots.ipynb` on main). Fix needed in notebook before script will work. Flag to Jess.
+- [x] **Fig 7** `NK_spectra.pdf` — `figures_src/figure_7_NK_spectra/` ✓ verified (`np.concat` is valid in NumPy ≥ 2.0)
 - ⚠️ **S4** (source unclear — awaiting Jess) — `figures_src/figure_S4_strategy_gens/` exists but plotting may be wrong
 
 ---
