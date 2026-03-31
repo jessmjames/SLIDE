@@ -39,7 +39,8 @@ write the three scripts.
 - [ ] **Fig 4A–4B, 4D–4F** (empirical accuracy/variance) — `ruggedness_figures_plots.ipynb`
 - [x] **Fig 4C** (repeat heterogeneity — violin) — `figures_src/figure_4C_repeat_heterogeneity/`
 - [ ] **Fig 4G** (empirical ruggedness comparison IK) — `ruggedness_figures_plots_IK.ipynb`
-- [ ] **Fig 5A–5G** (strategy prediction + DE) — `ruggedness_figures_plots.ipynb`
+- [x] **Fig 5A** `strategy_prediction.pdf` — `figures_src/figure_5A_strategy_prediction/` ✓ verified
+- [ ] **Fig 5B–5G** (NK DE + empirical DE) — `ruggedness_figures_plots.ipynb`
 - [ ] **Fig 7** (NK spectra) — `ruggedness_figures_plots.ipynb`
 - ⚠️ **S4** (source unclear — awaiting Jess) — `figures_src/figure_S4_strategy_gens/` exists but plotting may be wrong
 
