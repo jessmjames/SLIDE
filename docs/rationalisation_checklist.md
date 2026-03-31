@@ -47,10 +47,10 @@ write the three scripts.
 - [x] **Fig 4A** `empirical_fourier_spectra.pdf` — `figures_src/figure_4A_empirical_fourier_spectra/` ✓ verified
 - [x] **Fig 4B** `landscape_heterogeneity.pdf` — `figures_src/figure_4B_landscape_heterogeneity/` ✓ verified
 - [x] **Fig 4D** `accuracy_over_sampling.pdf` — `figures_src/figure_4D_accuracy_over_sampling/` ✓ verified
-- [ ] **Fig 4E** `empirical_variance_over_popsize.pdf` — source cell not yet found
-- [ ] **Fig 4F** `empirical_variance_over_generations.pdf` — source cell not yet found
+- [x] **Fig 4E** `empirical_variance_over_popsize.pdf` — `figures_src/figure_4E_empirical_variance_popsize/` ✓ verified
+- [x] **Fig 4F** `empirical_variance_over_generations.pdf` — `figures_src/figure_4F_empirical_variance_generations/` ✓ verified
 - [x] **Fig 4C** (repeat heterogeneity — violin) — `figures_src/figure_4C_repeat_heterogeneity/`
-- [ ] **Fig 4G** (empirical ruggedness comparison IK) — `ruggedness_figures_plots_IK.ipynb`
+- [x] **Fig 4G** `empirical_ruggedness_metric_comparison_IK.pdf` — `figures_src/figure_4G_empirical_ruggedness_IK/` ✓ verified (⚠️ data pkls from Jess's machine — copy to `plot_data/` before running)
 - [x] **Fig 5A** `strategy_prediction.pdf` — `figures_src/figure_5A_strategy_prediction/` ✓ verified
 - [x] **Fig 5B** `N45K1_DE_*.pdf` — `figures_src/figure_5B_NK_DE/` ✓ verified
 - [x] **Fig 5C** `N45K25_DE_*.pdf` — `figures_src/figure_5C_NK_rugged_DE/` ✓ verified

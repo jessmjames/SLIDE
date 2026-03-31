@@ -73,8 +73,8 @@ Input data requirements TBD when rationalising into per-figure folders.
 
 **Source:** `ruggedness_figures_plots_IK.ipynb` on `main`
 
-- **4C** (`repeat_heterogeneity.pdf`) — ⚠️ needs converting to a violin plot
-- **4G** (`empirical_ruggedness_metric_comparison_IK.pdf`)
+- **4C** (`repeat_heterogeneity.pdf`) — violin plot ✓ done
+- **4G** (`empirical_ruggedness_metric_comparison_IK.pdf`) — ⚠️ requires pkl files from Jess's machine; copy to `plot_data/`: `empirical_ruggedness_metric_comparison.pkl`, `{GB1,TrpB,TEV,E3}_strategy_selection.pkl`
 
 ---
 
