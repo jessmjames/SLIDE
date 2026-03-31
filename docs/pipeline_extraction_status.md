@@ -3,7 +3,7 @@
 Tracks the **actual implementation state** of each figure's 3-file pipeline.
 ✓ = fully implemented and runnable. Stub = script exists but does nothing useful.
 
-Last audited: 2026-03-31. Last updated: 2026-03-31.
+Last audited: 2026-03-31. Last updated: 2026-03-31 (5B–5G extracted).
 
 ---
 
@@ -27,6 +27,12 @@ All three scripts work. Running `1_raw_data.py → 2_process_data.py → 3_plot.
 | **4F** | `2_process_data.py` extracted 2026-03-31. Delegates to 4E (shared pkl). |
 | S2 | Complete inline implementation. `plot_data/` pkls exist from Feb 2026. |
 | S3 | All 3 scripts work; 2 and 3 delegate to `scripts/` wrappers (all on main). |
+| **5B** | `2_process_data.py` extracted 2026-03-31. Runs NK DE (4 conditions, 100 reps each); reads `large_strategy_sweep.pkl`, `large_decay_curve_sweep.pkl`. |
+| **5C** | `2_process_data.py` extracted 2026-03-31. Delegates to 5B (shared pkls). |
+| **5D** | `2_process_data.py` extracted 2026-03-31. Builds N4A20 lookup + runs GB1 DE; ⚠️ `strategy_sweep_GB1_multistart_100_uniform_m0.025.pkl` has no generation script on main. |
+| **5E** | `2_process_data.py` extracted 2026-03-31. TrpB DE; shares N4A20 lookup; ⚠️ same warning for TrpB sweep pkl. |
+| **5F** | `2_process_data.py` extracted 2026-03-31. TEV DE; shares N4A20 lookup; ⚠️ same warning for TEV sweep pkl. |
+| **5G** | `2_process_data.py` extracted 2026-03-31. N3A20 lookup + ParD3 DE; ⚠️ `strategy_sweep_E3_multistart_100_uniform_m0.025.pkl` has no generation script on main. |
 | Fig 6 | All 3 scripts work; all delegate to `scripts/` wrappers (all on main). |
 
 ---
@@ -50,15 +56,15 @@ All three scripts work. Running `1_raw_data.py → 2_process_data.py → 3_plot.
 
 ## Tier 3 — `3_plot.py` works; `2_process_data.py` is a stub with complex extraction needed
 
-These figures require extracting multi-cell data-processing logic from `ruggedness_figures_data_processing.ipynb`. Simulation scripts all exist on main.
+*(Was populated 2026-03-31 — all figures moved to Tier 1 above.)*
 
 | Figure | What `2_process_data.py` must do | Source cells | Key SLIDE_data inputs |
 |--------|----------------------------------|--------------|----------------------|
-| **5B / 5C** | Derive NK strategy predictions; run DE simulations (100 reps × 4 conditions); save `NK_DE.pkl`, `NK_strategy_spaces.pkl` | data_processing.ipynb cells 98–104 | `large_strategy_sweep.pkl`, `large_decay_curve_sweep.pkl` |
-| **5D** | Compute empirical lookup; run GB1 strategy selection + DE test; save `GB1_strategy_selection.pkl` | cells 106–113 | `N4A20_strategy_sweep.pkl`, `N4A20_decay_curves.pkl`, `decay_curves_gb1_m0.1_multistart_10000_uniform.pkl`, `strategy_sweep_GB1_multistart_100_uniform_m0.025.pkl` |
-| **5E** | Same as 5D for TrpB; save `TrpB_strategy_selection.pkl` | cells 106–109, 114 | Same N4A20 + TrpB curve pkls |
-| **5F** | Same as 5D for TEV; save `TEV_strategy_selection.pkl` | cells 106–109, 115 | Same N4A20 + TEV curve pkls |
-| **5G** | Compute N=3 lookup; run ParD3 strategy selection + DE test; save `ParD3_strategy_selection.pkl` | cells 116–119 | `N3A20_strategy_sweep.pkl`, `N3A20_decay_curves.pkl`, `decay_curves_pard3_m0.1_multistart_10000_uniform.pkl`, `strategy_sweep_E3_multistart_100_uniform_m0.025.pkl` |
+| ~~5B / 5C~~ | ✓ Done 2026-03-31 | — | — |
+| ~~5D~~ | ✓ Done 2026-03-31 | — | — |
+| ~~5E~~ | ✓ Done 2026-03-31 | — | — |
+| ~~5F~~ | ✓ Done 2026-03-31 | — | — |
+| ~~5G~~ | ✓ Done 2026-03-31 | — | — |
 
 Note: Fig 5A is handled — `2_process_data.py` calls `scripts/plot_strategy_prediction.py` which does the full processing.
 

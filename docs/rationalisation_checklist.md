@@ -52,12 +52,12 @@ write the three scripts.
 - [x] **Fig 4C** (repeat heterogeneity — violin) — `figures_src/figure_4C_repeat_heterogeneity/`
 - [x] **Fig 4G** `empirical_ruggedness_metric_comparison_IK.pdf` — `figures_src/figure_4G_empirical_ruggedness_IK/` ✓ verified (⚠️ data pkls from Jess's machine — copy to `plot_data/` before running)
 - [x] **Fig 5A** `strategy_prediction.pdf` — `figures_src/figure_5A_strategy_prediction/` ✓ verified
-- [x] **Fig 5B** `N45K1_DE_*.pdf` — `figures_src/figure_5B_NK_DE/` ✓ verified
-- [x] **Fig 5C** `N45K25_DE_*.pdf` — `figures_src/figure_5C_NK_rugged_DE/` ✓ verified
-- [x] **Fig 5D** `GB1_*.pdf` — `figures_src/figure_5D_GB1_DE/` ✓ verified
-- [x] **Fig 5E** `TrpB_*.pdf` — `figures_src/figure_5E_TrpB_DE/` ✓ verified
-- [x] **Fig 5F** `TEV_*.pdf` — `figures_src/figure_5F_TEV_DE/` ✓ verified (⚠️ title says "TrpB" — copy-paste error in original notebook, faithfully preserved)
-- [x] **Fig 5G** `ParD3_*.pdf` — `figures_src/figure_5G_ParD3_DE/` ✓ verified (cell 77 copy-paste error intentionally excluded)
+- [x] **Fig 5B** `N45K1_DE_*.pdf` — `figures_src/figure_5B_NK_DE/` ✓ `2_process_data.py` extracted 2026-03-31 (NK DE, 100 reps × 4 conditions)
+- [x] **Fig 5C** `N45K25_DE_*.pdf` — `figures_src/figure_5C_NK_rugged_DE/` ✓ `2_process_data.py` delegates to 5B
+- [x] **Fig 5D** `GB1_*.pdf` — `figures_src/figure_5D_GB1_DE/` ✓ `2_process_data.py` extracted 2026-03-31 (⚠️ GB1 sweep pkl has no generation script on main)
+- [x] **Fig 5E** `TrpB_*.pdf` — `figures_src/figure_5E_TrpB_DE/` ✓ `2_process_data.py` extracted 2026-03-31 (⚠️ TrpB sweep pkl has no generation script on main)
+- [x] **Fig 5F** `TEV_*.pdf` — `figures_src/figure_5F_TEV_DE/` ✓ `2_process_data.py` extracted 2026-03-31 (⚠️ TEV sweep pkl has no generation script on main; title says "TrpB" — copy-paste error faithfully preserved)
+- [x] **Fig 5G** `ParD3_*.pdf` — `figures_src/figure_5G_ParD3_DE/` ✓ `2_process_data.py` extracted 2026-03-31 (⚠️ E3 sweep pkl has no generation script on main)
 - [x] **Fig 7** `NK_spectra.pdf` — `figures_src/figure_7_NK_spectra/` ✓ verified (`np.concat` is valid in NumPy ≥ 2.0)
 - ⚠️ **S4** (source unclear — awaiting Jess) — `figures_src/figure_S4_strategy_gens/` exists but plotting may be wrong
 
