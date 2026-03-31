@@ -1,38 +1,41 @@
 """
-Figure 4B — Step 1: raw data requirements.
+Figure 4B — Step 1: run decay curve and heterogeneity simulations.
 
-This figure requires per-landscape empirical decay curves (all starting
-points) and NK heterogeneity simulation data.
+Runs two simulation scripts in sequence:
+  1. empirical_landscape_decay_curves_all_starts.py
+       → SLIDE_data/decay_curves_{gb1,trpb,tev,pard3}_m0.1_all_starts.pkl
+  2. landscape_heterogeneity.py
+       → SLIDE_data/N4A20_heterogeneity2.pkl
 
-Raw data files required (in SLIDE_data/)
------------------------------------------
-  decay_curves_gb1_m0.1_all_starts.pkl
-  decay_curves_trpb_m0.1_all_starts.pkl
-  decay_curves_tev_m0.1_all_starts.pkl
-  decay_curves_pard3_m0.1_all_starts.pkl
-  N4A20_heterogeneity.pkl
+Note: both scripts require a GPU.
 
-These are produced by simulation scripts (see ruggedness_figures_data_processing.ipynb
-cells 38, 49 for how they are loaded).
+Filename note: landscape_heterogeneity.py writes N4A20_heterogeneity2.pkl
+(with a trailing "2"), not N4A20_heterogeneity.pkl as the earlier stub
+documented. Downstream loading code should use the "2" variant.
+
+Shared raw data: the decay curve outputs (decay_curves_*_all_starts.pkl)
+are also used by Figures 4C and 4D.
+
+Usage
+-----
+  python figures_src/figure_4B_landscape_heterogeneity/1_raw_data.py
 """
 
-import os
+import subprocess
 import sys
+import os
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-sys.path.append(parent_dir)
 
-from slide_config import get_slide_data_dir
-slide_data_dir = get_slide_data_dir()
+decay_script = os.path.join(parent_dir, 'scripts',
+                             'empirical_landscape_decay_curves_all_starts.py')
+hetero_script = os.path.join(parent_dir, 'scripts',
+                              'landscape_heterogeneity.py')
 
-required = [
-    os.path.join(slide_data_dir, 'decay_curves_gb1_m0.1_all_starts.pkl'),
-    os.path.join(slide_data_dir, 'decay_curves_trpb_m0.1_all_starts.pkl'),
-    os.path.join(slide_data_dir, 'decay_curves_tev_m0.1_all_starts.pkl'),
-    os.path.join(slide_data_dir, 'decay_curves_pard3_m0.1_all_starts.pkl'),
-    os.path.join(slide_data_dir, 'N4A20_heterogeneity.pkl'),
-]
+for script in [decay_script, hetero_script]:
+    print(f'\nRunning {os.path.basename(script)}...')
+    result = subprocess.run([sys.executable, script], cwd=parent_dir)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
 
-for path in required:
-    status = 'OK' if os.path.exists(path) else 'MISSING'
-    print(f'[{status}] {path}')
+print('\nDone.')

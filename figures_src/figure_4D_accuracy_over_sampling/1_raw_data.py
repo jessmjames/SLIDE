@@ -1,51 +1,35 @@
 """
-Figure 4D — Step 1: raw data requirements.
+Figure 4D — Step 1: generate raw simulation data.
 
-This figure uses the same per-landscape all-starts empirical decay curves
-as Figure 4B, plus the Fourier spectra from Figure 4A (for the dotted
-reference lines showing weighted-average frequency).
+This figure shares its simulation raw data with Figure 4B (the all-starts
+empirical decay curves). Delegates to
+figures_src/figure_4B_landscape_heterogeneity/1_raw_data.py, which runs:
 
-Raw data files required (in SLIDE_data/)
------------------------------------------
-  decay_curves_gb1_m0.1_all_starts.pkl
-  decay_curves_trpb_m0.1_all_starts.pkl
-  decay_curves_tev_m0.1_all_starts.pkl
-  decay_curves_pard3_m0.1_all_starts.pkl
+  1. empirical_landscape_decay_curves_all_starts.py
+       → SLIDE_data/decay_curves_{gb1,trpb,tev,pard3}_m0.1_all_starts.pkl
+  2. landscape_heterogeneity.py
+       → SLIDE_data/N4A20_heterogeneity2.pkl
 
-Also requires (from landscape_arrays/)
----------------------------------------
-  landscape_arrays/GB1_landscape_array.pkl
-  landscape_arrays/E3_landscape_array.pkl      (ParD3)
-  landscape_arrays/TEV_landscape_array.pkl
-  landscape_arrays/TrpB_landscape_array.pkl
+Note: both scripts require a GPU. Only the decay curve outputs are consumed
+by Figure 4D; the heterogeneity pkl is generated as a side-effect of running
+the shared 4B pipeline.
 
-These are used by 2_process_data.py (Fig 4A) to produce
-  plot_data/fourier_spectra_empirical.pkl
-which 3_plot.py loads for the dotted reference lines.
+Figure 4D also requires Fourier spectra for the dotted reference lines; those
+are produced by figures_src/figure_4A_.../2_process_data.py, not here.
+
+Usage
+-----
+  python figures_src/figure_4D_accuracy_over_sampling/1_raw_data.py
 """
 
-import os
+import subprocess
 import sys
+import os
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-sys.path.append(parent_dir)
 
-from slide_config import get_slide_data_dir
-slide_data_dir = get_slide_data_dir()
+script = os.path.join(parent_dir, 'figures_src',
+                      'figure_4B_landscape_heterogeneity', '1_raw_data.py')
 
-required_sim = [
-    os.path.join(slide_data_dir, 'decay_curves_gb1_m0.1_all_starts.pkl'),
-    os.path.join(slide_data_dir, 'decay_curves_trpb_m0.1_all_starts.pkl'),
-    os.path.join(slide_data_dir, 'decay_curves_tev_m0.1_all_starts.pkl'),
-    os.path.join(slide_data_dir, 'decay_curves_pard3_m0.1_all_starts.pkl'),
-]
-required_static = [
-    os.path.join(parent_dir, 'landscape_arrays', 'GB1_landscape_array.pkl'),
-    os.path.join(parent_dir, 'landscape_arrays', 'E3_landscape_array.pkl'),
-    os.path.join(parent_dir, 'landscape_arrays', 'TEV_landscape_array.pkl'),
-    os.path.join(parent_dir, 'landscape_arrays', 'TrpB_landscape_array.pkl'),
-]
-
-for path in required_sim + required_static:
-    status = 'OK' if os.path.exists(path) else 'MISSING'
-    print(f'[{status}] {path}')
+print('Delegating to Figure 4B raw data script...')
+result = subprocess.run([sys.executable, script], cwd=parent_dir, check=True)

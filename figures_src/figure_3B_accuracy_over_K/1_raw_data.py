@@ -1,26 +1,32 @@
 """
 Figure 3B — Step 1: generate large NK decay curve sweep across ruggedness.
 
-Raw simulation data is a large sweep over NK landscapes on a 10x10 grid of
-(N, K) values (N in [10, 50], K in [1, N]) with 10 samples each:
+Runs a large sweep over NK landscapes on a 10x10 grid of (N, K) values
+(N in [10, 50], K in [1, N]) with 10 samples each.
 
-  SLIDE_data/large_decay_curve_sweep.pkl  — decay curve array, shape (100, ?, 25)
-  SLIDE_data/large_strategy_sweep.pkl     — strategy sweep (not used for 3B)
+Output
+------
+  SLIDE_data/large_decay_curve_sweep.pkl  — decay curve array
 
-These are loaded in ruggedness_figures_data_processing.ipynb (cell 6).
-The NK grid is defined in cell 5 via NK_grid([10, 50], num_samples=10).
+Note: requires a GPU.
+Shared raw data: also used by Figures 5A, 5B, and 5C.
 
-No standalone script exists for this sweep — it was run interactively.
-Contact the repository maintainer for details on how to re-run the sweep.
+Usage
+-----
+  python figures_src/figure_3B_accuracy_over_K/1_raw_data.py
 """
 
+import subprocess
+import sys
 import os
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-out = os.path.join(parent_dir, 'plot_data', 'ruggedness_accuracy.pkl')
 
-if os.path.exists(out):
-    print(f"Already exists: {out}")
-else:
-    print("ruggedness_accuracy.pkl not found.")
-    print("Run cells 5–14 of ruggedness_figures_data_processing.ipynb to generate it.")
-    print("Requires SLIDE_data/large_decay_curve_sweep.pkl.")
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+script = os.path.join(parent_dir, 'scripts', 'large_decay_curve_sweep.py')
+
+print(f'Running {os.path.basename(script)}...')
+result = subprocess.run([sys.executable, script], cwd=parent_dir)
+if result.returncode != 0:
+    sys.exit(result.returncode)
+
+print('Done.')

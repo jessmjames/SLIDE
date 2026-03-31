@@ -1,17 +1,29 @@
 """
-Figure 4C — Step 1: generate heterogeneity decay curve data.
+Figure 4C — Step 1: generate raw simulation data.
 
-This figure shares raw decay curves with Figure 4B. The all-starts empirical
-decay curves are computed by:
+This figure shares all raw data with Figure 4B. Delegates to
+figures_src/figure_4B_landscape_heterogeneity/1_raw_data.py, which runs:
 
-  scripts/empirical_landscape_decay_curves_all_starts_fast.py
+  1. empirical_landscape_decay_curves_all_starts.py
+       → SLIDE_data/decay_curves_{gb1,trpb,tev,pard3}_m0.1_all_starts.pkl
+  2. landscape_heterogeneity.py
+       → SLIDE_data/N4A20_heterogeneity2.pkl
 
-which produces per-landscape decay arrays in SLIDE_data/.
+Note: both scripts require a GPU.
 
-See Figure 4B pipeline for full details (not yet rationalised — still in
-ruggedness_figures_data_processing_IK.ipynb).
+Usage
+-----
+  python figures_src/figure_4C_repeat_heterogeneity/1_raw_data.py
 """
 
-# Nothing to run independently here — raw data is shared with Fig 4B.
-# Run scripts/empirical_landscape_decay_curves_all_starts_fast.py first.
-print("Raw data shared with Fig 4B. See ruggedness_figures_data_processing_IK.ipynb.")
+import subprocess
+import sys
+import os
+
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+script = os.path.join(parent_dir, 'figures_src',
+                      'figure_4B_landscape_heterogeneity', '1_raw_data.py')
+
+print('Delegating to Figure 4B raw data script...')
+result = subprocess.run([sys.executable, script], cwd=parent_dir, check=True)

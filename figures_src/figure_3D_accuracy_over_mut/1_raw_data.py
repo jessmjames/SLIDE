@@ -1,24 +1,31 @@
 """
 Figure 3D — Step 1: generate decay curve sweep over mutation rates.
 
-Raw simulation data is a sweep over 25 mutation rates (0.01 to 2.0) on a
-fixed NK landscape, with 500 replicates each:
+Runs a sweep over 25 mutation rates (0.01 to 2.0) on a fixed NK
+landscape, with 500 replicates each.
 
+Output
+------
   SLIDE_data/mutation_rate_accuracy.pkl  — raw decay curves, shape (25, ?, 25)
 
-This file is loaded in ruggedness_figures_data_processing.ipynb (cell 21).
+Note: requires a GPU.
 
-No standalone script exists for this sweep — it was run interactively.
-Contact the repository maintainer for details on how to re-run the sweep.
+Usage
+-----
+  python figures_src/figure_3D_accuracy_over_mut/1_raw_data.py
 """
 
+import subprocess
+import sys
 import os
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-out = os.path.join(parent_dir, 'plot_data', 'mut_accuracy.pkl')
 
-if os.path.exists(out):
-    print(f"Already exists: {out}")
-else:
-    print("mut_accuracy.pkl not found.")
-    print("Run cells 21–24 of ruggedness_figures_data_processing.ipynb to generate it.")
-    print("Requires SLIDE_data/mutation_rate_accuracy.pkl.")
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+script = os.path.join(parent_dir, 'scripts', 'mutation_rate_accuracy.py')
+
+print(f'Running {os.path.basename(script)}...')
+result = subprocess.run([sys.executable, script], cwd=parent_dir)
+if result.returncode != 0:
+    sys.exit(result.returncode)
+
+print('Done.')
