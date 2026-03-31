@@ -3,7 +3,7 @@
 Tracks the **actual implementation state** of each figure's 3-file pipeline.
 ✓ = fully implemented and runnable. Stub = script exists but does nothing useful.
 
-Last audited: 2026-03-31.
+Last audited: 2026-03-31. Last updated: 2026-03-31.
 
 ---
 
@@ -14,9 +14,17 @@ All three scripts work. Running `1_raw_data.py → 2_process_data.py → 3_plot.
 | Figure | Notes |
 |--------|-------|
 | 2A–2E | Self-contained; no external data needed. |
+| **3A** | `2_process_data.py` extracted 2026-03-31. Runs DE inline; no SLIDE_data needed. |
+| **3B** | `2_process_data.py` extracted 2026-03-31. Reads `large_decay_curve_sweep.pkl`. |
+| **3C** | `2_process_data.py` extracted 2026-03-31. Reads `popsize_accuracy.pkl`. |
+| **3D** | `2_process_data.py` extracted 2026-03-31. Reads `mutation_rate_accuracy.pkl`. |
+| **3E** | `2_process_data.py` extracted 2026-03-31. Self-contained; builds NK landscapes analytically (~minutes). |
 | 4A | Reads static landscape arrays only. `2_process_data.py` implemented. |
-| 4B | `2_process_data.py` implemented. ⚠️ Filename mismatch: `landscape_heterogeneity.py` writes `N4A20_heterogeneity2.pkl` but `2_process_data.py` may expect `N4A20_heterogeneity.pkl` — needs checking. |
+| 4B | `2_process_data.py` implemented. ⚠️ Filename mismatch: `landscape_heterogeneity.py` writes `N4A20_heterogeneity2.pkl` but `2_process_data.py` expects `N4A20_heterogeneity.pkl` — needs checking. |
+| **4C** | `2_process_data.py` extracted 2026-03-31. Delegates to 4B (shared pkl). |
 | 4D | `2_process_data.py` implemented; shares `decay_curves_*_all_starts.pkl` with 4B. |
+| **4E** | `2_process_data.py` extracted 2026-03-31. Bootstrap rho over popsizes; reads `*_multi_popsize.pkl`. |
+| **4F** | `2_process_data.py` extracted 2026-03-31. Delegates to 4E (shared pkl). |
 | S2 | Complete inline implementation. `plot_data/` pkls exist from Feb 2026. |
 | S3 | All 3 scripts work; 2 and 3 delegate to `scripts/` wrappers (all on main). |
 | Fig 6 | All 3 scripts work; all delegate to `scripts/` wrappers (all on main). |
@@ -25,7 +33,7 @@ All three scripts work. Running `1_raw_data.py → 2_process_data.py → 3_plot.
 
 ## Tier 2 — `3_plot.py` works; `2_process_data.py` is a stub
 
-Simulation scripts exist on main. Just need to extract the data-processing notebook cells.
+*(Was populated 2026-03-31 — all figures moved to Tier 1 above.)*
 
 | Figure | What `2_process_data.py` must do | Source | SLIDE_data input |
 |--------|----------------------------------|--------|-----------------|
@@ -33,10 +41,10 @@ Simulation scripts exist on main. Just need to extract the data-processing noteb
 | **3B** | Load sweep; fit decay rates per NK pair; save `ruggedness_accuracy.pkl` | data_processing.ipynb cells 5–14 | `SLIDE_data/large_decay_curve_sweep.pkl` ← `scripts/large_decay_curve_sweep.py` ✓ |
 | **3C** | Load sweep; fit decay rates per popsize; save `popsize_accuracy.pkl` | data_processing.ipynb cells 16–19 | `SLIDE_data/popsize_accuracy.pkl` ← `scripts/popsize_accuracy.py` ✓ |
 | **3D** | Load sweep; fit decay rates per mut rate; save `mut_accuracy.pkl` | data_processing.ipynb cells 21–24 | `SLIDE_data/mutation_rate_accuracy.pkl` ← `scripts/mutation_rate_accuracy.py` ✓ |
-| **3E** | Build N=12 NK landscapes analytically; compute 7 ruggedness metrics; save `NK_ruggedness_metric_comparison.pkl` | data_processing.ipynb cells 26–31 | None (self-contained, ~50 landscapes × 12 K values) |
-| **4C** | Load heterogeneity data; compute per-repeat rho values | `ruggedness_figures_data_processing_IK.ipynb` cells 48–50 | Shares `decay_curves_*_all_starts.pkl` with 4B |
-| **4E** | Load popsize decay curves; bootstrap rho at each popsize; save `estimation_variance.pkl` (array_results1) | data_processing.ipynb (long computation) | `SLIDE_data/decay_curves_*_multi_popsize.pkl` ← `scripts/empirical_landscape_decay_curves_popsize.py` ✓ |
-| **4F** | Same as 4E (array_results2 — bootstrap over generations); saves same pkl | Same cells | Same |
+| ~~3E~~ | ✓ Done 2026-03-31 | — | — |
+| ~~4C~~ | ✓ Done 2026-03-31 | — | — |
+| ~~4E~~ | ✓ Done 2026-03-31 | — | — |
+| ~~4F~~ | ✓ Done 2026-03-31 | — | — |
 
 ---
 
