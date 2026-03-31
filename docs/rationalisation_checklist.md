@@ -35,13 +35,17 @@ For each figure: identify the relevant notebook cells, trace data dependencies,
 write the three scripts.
 
 - [ ] **Fig 2A–2E** (3D landscape visualisations) — `ruggedness_figures_plots.ipynb`
-- [ ] **Fig 3A–3E** (NK accuracy plots) — `ruggedness_figures_plots.ipynb`
+- [x] **Fig 3A** `decay_curves_example.pdf` — `figures_src/figure_3A_decay_curves_example/` ✓ verified
+- [x] **Fig 3B** `accuracy_over_K.pdf` — `figures_src/figure_3B_accuracy_over_K/` ✓ verified
+- [x] **Fig 3C** `accuracy_over_popsize.pdf` — `figures_src/figure_3C_accuracy_over_popsize/` ✓ verified
+- [x] **Fig 3D** `accuracy_over_mut.pdf` — `figures_src/figure_3D_accuracy_over_mut/` ✓ verified
+- [x] **Fig 3E** `NK_ruggedness_metric_comparison.pdf` — `figures_src/figure_3E_NK_ruggedness_comparison/` ✓ verified
 - [ ] **Fig 4A–4B, 4D–4F** (empirical accuracy/variance) — `ruggedness_figures_plots.ipynb`
 - [x] **Fig 4C** (repeat heterogeneity — violin) — `figures_src/figure_4C_repeat_heterogeneity/`
 - [ ] **Fig 4G** (empirical ruggedness comparison IK) — `ruggedness_figures_plots_IK.ipynb`
 - [x] **Fig 5A** `strategy_prediction.pdf` — `figures_src/figure_5A_strategy_prediction/` ✓ verified
 - [ ] **Fig 5B–5G** (NK DE + empirical DE) — `ruggedness_figures_plots.ipynb`
-- [ ] **Fig 7** (NK spectra) — `ruggedness_figures_plots.ipynb`
+- [x] **Fig 7** `NK_spectra.pdf` — `figures_src/figure_7_NK_spectra/` ✓ verified
 - ⚠️ **S4** (source unclear — awaiting Jess) — `figures_src/figure_S4_strategy_gens/` exists but plotting may be wrong
 
 ---
