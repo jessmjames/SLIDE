@@ -34,17 +34,30 @@ These are closest to the target structure — just need organising into folders.
 For each figure: identify the relevant notebook cells, trace data dependencies,
 write the three scripts.
 
-- [ ] **Fig 2A–2E** (3D landscape visualisations) — `ruggedness_figures_plots.ipynb`
+- [x] **Fig 2A** `smooth_landscape_3D.pdf` — `figures_src/figure_2A_smooth_landscape_3D/` ✓ verified
+- [x] **Fig 2B** `rugged_landscape_3D.pdf` — `figures_src/figure_2B_rugged_landscape_3D/` ✓ verified
+- [x] **Fig 2C** `basis_vectors.pdf` — `figures_src/figure_2C_basis_vectors/` ✓ verified
+- [x] **Fig 2D** `smooth_fourier_3D.pdf` — `figures_src/figure_2D_smooth_fourier_3D/` ✓ verified
+- [x] **Fig 2E** `rugged_fourier_3D.pdf` — `figures_src/figure_2E_rugged_fourier_3D/` ✓ verified
 - [x] **Fig 3A** `decay_curves_example.pdf` — `figures_src/figure_3A_decay_curves_example/` ✓ verified
 - [x] **Fig 3B** `accuracy_over_K.pdf` — `figures_src/figure_3B_accuracy_over_K/` ✓ verified
 - [x] **Fig 3C** `accuracy_over_popsize.pdf` — `figures_src/figure_3C_accuracy_over_popsize/` ✓ verified
 - [x] **Fig 3D** `accuracy_over_mut.pdf` — `figures_src/figure_3D_accuracy_over_mut/` ✓ verified
 - [x] **Fig 3E** `NK_ruggedness_metric_comparison.pdf` — `figures_src/figure_3E_NK_ruggedness_comparison/` ✓ verified
-- [ ] **Fig 4A–4B, 4D–4F** (empirical accuracy/variance) — `ruggedness_figures_plots.ipynb`
+- [x] **Fig 4A** `empirical_fourier_spectra.pdf` — `figures_src/figure_4A_empirical_fourier_spectra/` ✓ verified
+- [x] **Fig 4B** `landscape_heterogeneity.pdf` — `figures_src/figure_4B_landscape_heterogeneity/` ✓ verified
+- [x] **Fig 4D** `accuracy_over_sampling.pdf` — `figures_src/figure_4D_accuracy_over_sampling/` ✓ verified
+- [ ] **Fig 4E** `empirical_variance_over_popsize.pdf` — source cell not yet found
+- [ ] **Fig 4F** `empirical_variance_over_generations.pdf` — source cell not yet found
 - [x] **Fig 4C** (repeat heterogeneity — violin) — `figures_src/figure_4C_repeat_heterogeneity/`
 - [ ] **Fig 4G** (empirical ruggedness comparison IK) — `ruggedness_figures_plots_IK.ipynb`
 - [x] **Fig 5A** `strategy_prediction.pdf` — `figures_src/figure_5A_strategy_prediction/` ✓ verified
-- [ ] **Fig 5B–5G** (NK DE + empirical DE) — `ruggedness_figures_plots.ipynb`
+- [x] **Fig 5B** `N45K1_DE_*.pdf` — `figures_src/figure_5B_NK_DE/` ✓ verified
+- [x] **Fig 5C** `N45K25_DE_*.pdf` — `figures_src/figure_5C_NK_rugged_DE/` ✓ verified
+- [x] **Fig 5D** `GB1_*.pdf` — `figures_src/figure_5D_GB1_DE/` ✓ verified
+- [x] **Fig 5E** `TrpB_*.pdf` — `figures_src/figure_5E_TrpB_DE/` ✓ verified
+- [x] **Fig 5F** `TEV_*.pdf` — `figures_src/figure_5F_TEV_DE/` ✓ verified (⚠️ title says "TrpB" — copy-paste error in original notebook, faithfully preserved)
+- [x] **Fig 5G** `ParD3_*.pdf` — `figures_src/figure_5G_ParD3_DE/` ✓ verified (cell 77 copy-paste error intentionally excluded)
 - [x] **Fig 7** `NK_spectra.pdf` — `figures_src/figure_7_NK_spectra/` ✓ verified (`np.concat` is valid in NumPy ≥ 2.0)
 - ⚠️ **S4** (source unclear — awaiting Jess) — `figures_src/figure_S4_strategy_gens/` exists but plotting may be wrong
 
