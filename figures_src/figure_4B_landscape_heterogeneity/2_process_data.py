@@ -10,7 +10,7 @@ Input
   SLIDE_data/decay_curves_trpb_m0.1_all_starts.pkl
   SLIDE_data/decay_curves_tev_m0.1_all_starts.pkl
   SLIDE_data/decay_curves_pard3_m0.1_all_starts.pkl
-  SLIDE_data/N4A20_heterogeneity.pkl
+  SLIDE_data/N4A20_heterogeneity2.pkl
 
 Output
 ------
@@ -51,7 +51,7 @@ if os.path.exists(out):
 eps = 1e-8
 
 # Load NK heterogeneity data
-with open(os.path.join(slide_data_dir, 'N4A20_heterogeneity.pkl'), 'rb') as f:
+with open(os.path.join(slide_data_dir, 'N4A20_heterogeneity2.pkl'), 'rb') as f:
     NK_heterogeneity = pickle.load(f)
 
 # Load empirical all-starts decay curves
