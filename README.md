@@ -6,26 +6,74 @@ Directed evolution is a method for engineering biological systems or components,
 
 Here we propose **SLIDE**, **S**equence-free **L**andscape **I**nference for **D**irected **E**volution, a method for estimating landscape ruggedness from a mutating population, using only population-level phenotypic data and knowledge of mutation rate. This method uses a short period of exploration at the beginning of an experiment to predict the ruggedness, subsequently guiding the choice of high-performing parameters for directed evolution control.
 
+## Installation
 
-## 📂 Repository Structure
+Create the Conda environment with mamba:
 
-SLIDE/\
-├── scripts/ # Scripts to produce the SLIDE_data files (which can be downloaded from Zenodo: 10.5281/zenodo.16849761)\
-├── plot_data/ # Minimal data required for producing plots in ruggedness_figures_plots.ipynb\
-├── landscape_arrays/ # Empirical landscape arrays\
-├── direvo_functions.py # Directed evolution functions\
-├── selection_function_library.py # Selection functions\
-├── ruggedness_functions.py # Functions for ruggedness analysis\
-├── ruggedness_figures_data_processing.ipynb # Pre-processing to produce data in plot_data/\
-├── ruggedness_figures_plots.ipynb # Code for producing plots\
-└── README.md # This file
+```bash
+mamba env create -f environment.yml
+conda activate SLIDE_env
+```
+
+Alternatively, use conda:
+
+```bash
+conda env create -f environment.yml
+conda activate SLIDE_env
+```
+
+To make the environment available as a Jupyter notebook kernel, run:
+
+```bash
+python -m ipykernel install --user --name SLIDE_env --display-name "Python (SLIDE_env)"
+```
+
+JAX is included in `environment.yml`. For GPU-specific JAX installations, follow the official JAX installation instructions: https://jax.readthedocs.io/en/latest/installation.html.
 
 ## Instructions
 
-- Plots can be reproduced by running ruggedness_figures_plots.ipynb.
-- More in-depth analysis can be found in ruggedness_figures_data_processing.ipynb, which requires SLIDE_data files (download from Zenodo: 10.5281/zenodo.16849761, or generate from .py files in scripts/).
+The refactored pipeline is notebook-driven. Run the notebooks from the repository root in this order:
 
-### Note: This code requires Jax. 
-Please follow the instructions at https://jax.readthedocs.io/en/latest/installation.html to install.
+1. `data_generation.ipynb`
+   - Generates raw simulation products.
+   - Creates `raw_data/` if needed.
+   - Calls reusable functions from `slide/`; it does not execute files from `scripts/`.
+
+2. `data_processing.ipynb`
+   - Loads raw products from `raw_data/`.
+   - Processes them into stable plotting inputs.
+   - Creates `processed_data/` if needed.
+
+3. `data_visualisation.ipynb`
+   - Loads plotting inputs from `processed_data/`.
+   - Defines `save_type_list = ["pdf", "eps", "png"]`.
+   - Saves figures into `figures/pdf/`, `figures/eps/`, and `figures/png/`.
+
+The original notebooks and scripts are retained as provenance for the paper analysis, but the refactored workflow above should use the three new notebooks and the `slide/` package.
+
+## Repository Structure
+
+```text
+SLIDE/
+├── data_generation.ipynb          # Generate raw simulation data into raw_data/
+├── data_processing.ipynb          # Process raw data into processed_data/
+├── data_visualisation.ipynb       # Create figures in figures/{pdf,eps,png}/
+├── environment.yml                # Conda/mamba environment definition for SLIDE_env
+├── slide/                         # Refactored reusable library code
+│   ├── data_generation.py         # Raw-data simulation and product registry
+│   ├── data_processing.py         # Processing helpers for plotting inputs
+│   ├── direvo_functions.py        # Directed-evolution and diffusion routines
+│   ├── ruggedness_functions.py    # Ruggedness and spectral analysis helpers
+│   ├── selection_function_library.py
+│   └── utils.py                   # Paths, pickle I/O, filename and figure helpers
+├── landscape_arrays/              # Empirical landscape arrays
+├── other_data/                    # Small auxiliary data files
+├── raw_data/                      # Generated raw products; created by data_generation.ipynb
+├── processed_data/                # Generated plotting inputs; created by data_processing.ipynb
+├── figures/                       # Generated figures; created by data_visualisation.ipynb
+├── scripts/                       # Original generation scripts retained as provenance
+├── ruggedness_figures_*.ipynb     # Original paper notebooks retained as provenance
+└── README.md
+```
 
 [Steel Lab Oxford](http://steel.ac/)
