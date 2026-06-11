@@ -25,7 +25,7 @@ from .direvo_functions import (
     run_diffusion,
     run_directed_evolution,
 )
-from .utils import get_landscape_arrays_dir, load_pickle, parameterized_filename, raw_path
+from .utils import get_landscape_arrays_dir, load_pickle, raw_path
 
 
 EMPIRICAL_NAMES: tuple[str, ...] = ("GB1", "TrpB", "TEV", "ParD3")
@@ -652,156 +652,23 @@ def generate_empirical_strategy_sweep(
 
 
 RAW_FILENAMES: dict[str, str] = {
-    "nk_decay_grid": parameterized_filename(
-        "nk_decay_grid",
-        N="10-50",
-        A=2,
-        K="grid10",
-        mu=0.5,
-        pop=2500,
-        landscapes=100,
-        reps=25,
-        steps=25,
-        pre=50,
-        seed=42,
-    ),
-    "nk_strategy_grid": parameterized_filename(
-        "nk_strategy_grid",
-        N="10-50",
-        A=2,
-        K="grid10",
-        mu=0.1,
-        pop=1200,
-        landscapes=100,
-        reps=25,
-        steps=25,
-        splits=7,
-        bc=7,
-        seed=42,
-    ),
-    "nk_popsize_accuracy": parameterized_filename(
-        "nk_decay_popsize_accuracy",
-        N=25,
-        A=2,
-        K=15,
-        mu=0.5,
-        pop="100-2500",
-        reps=25,
-        inner=20,
-        steps=25,
-        pre=50,
-        seed=42,
-    ),
-    "nk_mutation_accuracy": parameterized_filename(
-        "nk_decay_mutation_accuracy",
-        N=25,
-        A=2,
-        K=15,
-        mu="0.01-2",
-        pop=2000,
-        reps=25,
-        inner=20,
-        steps=25,
-        pre=50,
-        seed=42,
-    ),
-    "nk_heterogeneity": parameterized_filename(
-        "nk_heterogeneity",
-        N=4,
-        A=20,
-        K="1-4",
-        mu=0.1,
-        pop=1200,
-        starts=10000,
-        reps=10,
-        steps=25,
-        seed=42,
-    ),
-    "nk_decay_N4_A20": parameterized_filename(
-        "nk_decay",
-        N=4,
-        A=20,
-        K="1-3",
-        mu=0.1,
-        pop=1200,
-        starts=10000,
-        reps=10,
-        steps=25,
-        seed=42,
-    ),
-    "nk_strategy_N4_A20": parameterized_filename(
-        "nk_strategy",
-        N=4,
-        A=20,
-        K="1-3",
-        mu=0.1,
-        pop=1200,
-        landscapes=125,
-        reps=10,
-        steps=25,
-        splits=7,
-        bc=7,
-        seed=42,
-    ),
+    "nk_decay_grid": "nk_decay_grid_raw_data.pkl",
+    "nk_strategy_grid": "nk_strategy_grid_raw_data.pkl",
+    "nk_popsize_accuracy": "nk_popsize_accuracy_raw_data.pkl",
+    "nk_mutation_accuracy": "nk_mutation_accuracy_raw_data.pkl",
+    "nk_heterogeneity": "nk_heterogeneity_raw_data.pkl",
+    "nk_decay_N4_A20": "nk_decay_N4_A20_raw_data.pkl",
+    "nk_strategy_N4_A20": "nk_strategy_N4_A20_raw_data.pkl",
 }
 
 for _steps in GENERATION_STEPS:
-    RAW_FILENAMES[f"nk_strategy_N4_A20_steps{_steps}"] = parameterized_filename(
-        "nk_strategy",
-        N=4,
-        A=20,
-        K="1-3",
-        mu=0.1,
-        pop=1200,
-        landscapes=10,
-        reps=10,
-        steps=_steps,
-        splits=7,
-        bc=7,
-        seed=42,
-    )
+    RAW_FILENAMES[f"nk_strategy_N4_A20_steps{_steps}"] = f"nk_strategy_N4_A20_steps{_steps}_raw_data.pkl"
 
 for _name in EMPIRICAL_NAMES:
-    _pop = 60 if _name == "ParD3" else 2500
-    _starts = 8000 if _name == "ParD3" else 10000
-    RAW_FILENAMES[f"empirical_decay_{_name}_uniform"] = parameterized_filename(
-        f"empirical_decay_{_name}",
-        mu=0.1,
-        pop=_pop,
-        starts=f"{_starts}_uniform",
-        reps=10,
-        steps=25,
-        seed=42,
-    )
-    RAW_FILENAMES[f"empirical_decay_{_name}_all"] = parameterized_filename(
-        f"empirical_decay_{_name}",
-        mu=0.1,
-        pop=_pop,
-        starts="all_all",
-        reps=10,
-        steps=25,
-        seed=42,
-    )
-    RAW_FILENAMES[f"empirical_decay_{_name}_popsize"] = parameterized_filename(
-        f"empirical_decay_{_name}",
-        mu=0.1,
-        pop="25-2500",
-        starts=f"{_starts}_uniform",
-        reps=10,
-        steps=25,
-        seed=42,
-    )
-    RAW_FILENAMES[f"empirical_strategy_{_name}_uniform"] = parameterized_filename(
-        f"empirical_strategy_{'E3' if _name == 'ParD3' else _name}",
-        mu=0.025,
-        pop=1200,
-        starts="100_uniform",
-        reps=10,
-        steps=25,
-        splits=7,
-        bc=7,
-        seed=42,
-    )
+    RAW_FILENAMES[f"empirical_decay_{_name}_uniform"] = f"empirical_decay_{_name}_uniform_raw_data.pkl"
+    RAW_FILENAMES[f"empirical_decay_{_name}_all"] = f"empirical_decay_{_name}_all_raw_data.pkl"
+    RAW_FILENAMES[f"empirical_decay_{_name}_popsize"] = f"empirical_decay_{_name}_popsize_raw_data.pkl"
+    RAW_FILENAMES[f"empirical_strategy_{_name}_uniform"] = f"empirical_strategy_{_name}_uniform_raw_data.pkl"
 
 
 def expected_raw_outputs() -> dict[str, Path]:

@@ -1,6 +1,10 @@
 """Processing helpers for the SLIDE paper notebooks."""
 from __future__ import annotations
+
+from collections.abc import Mapping
+
 import numpy as np
+
 from .direvo_functions import get_single_decay_rate, get_single_decay_rate_IK_v2
 from .ruggedness_functions import find_distance_to_closest_max, get_dirichlet_metric, get_landscape_spectrum, get_mean_paths_to_max, landscape_r2, local_epistasis, max_possible_paths, roughness_to_slope
 from .utils import get_landscape_arrays_dir, load_pickle, load_raw, save_processed
@@ -15,20 +19,24 @@ def load_landscapes() -> dict[str, np.ndarray]:
     files = {'GB1': 'GB1_landscape_array.pkl', 'TrpB': 'TrpB_landscape_array.pkl', 'TEV': 'TEV_landscape_array.pkl', 'ParD3': 'E3_landscape_array.pkl'}
     return {name: load_pickle(get_landscape_arrays_dir() / filename) for name, filename in files.items()}
 
-def normalize_decay_array(decay_data: np.ndarray, steps: int=25) -> np.ndarray:
+def normalize_decay_array(decay_data: np.ndarray, steps: int | None=None) -> np.ndarray:
     """Reshape and normalize decay curves by their initial values.
 
     Parameters:
     - decay_data: np.ndarray
         Raw decay data with generation as the last dimension.
-    - steps: int
-        Number of generation steps per trajectory.
+    - steps: int | None
+        Number of generation steps per trajectory. If omitted, the final data
+        dimension is used.
 
     Returns:
     - np.ndarray
         Normalized curves with shape ``(blocks, trajectories, steps)``.
     """
-    reshaped = np.asarray(decay_data).reshape(np.asarray(decay_data).shape[0], -1, steps)
+    decay_array = np.asarray(decay_data)
+    if steps is None:
+        steps = int(decay_array.shape[-1])
+    reshaped = decay_array.reshape(decay_array.shape[0], -1, int(steps))
     return reshaped / reshaped[:, :, 0][:, :, None]
 
 def estimate_decay_rates(normalized_curves: np.ndarray, *, mut: float=1.0, method: str='default') -> np.ndarray:
@@ -47,15 +55,22 @@ def estimate_decay_rates(normalized_curves: np.ndarray, *, mut: float=1.0, metho
         Fitted decay rates with shape ``normalized_curves.shape[:2]``.
     """
     out = np.zeros(normalized_curves.shape[:2])
+    num_steps = int(normalized_curves.shape[-1])
     for i in range(normalized_curves.shape[0]):
         for j in range(normalized_curves.shape[1]):
             if method == 'IK':
-                out[i, j] = get_single_decay_rate_IK_v2(normalized_curves[i, j], mut=mut)[0] / 2
+                out[i, j] = get_single_decay_rate_IK_v2(normalized_curves[i, j], mut=mut, num_steps=num_steps)[0] / 2
             else:
-                out[i, j] = get_single_decay_rate(normalized_curves[i, j], mut=mut)[0]
+                out[i, j] = get_single_decay_rate(normalized_curves[i, j], mut=mut, num_steps=num_steps)[0]
     return out
 
-def process_ruggedness_accuracy(decay_data: np.ndarray, nk_pairs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def process_ruggedness_accuracy(
+    decay_data: np.ndarray,
+    nk_pairs: np.ndarray,
+    *,
+    steps: int | None=None,
+    mutation_rate: float=0.5,
+) -> tuple[np.ndarray, np.ndarray]:
     """Process NK ruggedness accuracy decay data.
 
     Parameters:
@@ -63,52 +78,64 @@ def process_ruggedness_accuracy(decay_data: np.ndarray, nk_pairs: np.ndarray) ->
         Raw NK decay grid.
     - nk_pairs: np.ndarray
         Array of ``(N, K)`` parameter pairs.
+    - steps: int | None
+        Number of generation steps in each trajectory.
+    - mutation_rate: float
+        Mutation scale passed to the fitted decay model.
 
     Returns:
     - tuple[np.ndarray, np.ndarray]
         True ``(K + 1) / N`` values and fitted decay rates.
     """
-    normalized = normalize_decay_array(decay_data)
-    decay_rates = estimate_decay_rates(normalized, mut=0.5)
+    normalized = normalize_decay_array(decay_data, steps=steps)
+    decay_rates = estimate_decay_rates(normalized, mut=mutation_rate)
     k_plus_one_over_ns = np.clip((np.asarray(nk_pairs)[:, 1] + 1) / np.asarray(nk_pairs)[:, 0], 0, 1)
     return (k_plus_one_over_ns, decay_rates)
 
-def process_popsize_accuracy(popsize_data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def process_popsize_accuracy(popsize_data: np.ndarray, params: Mapping[str, object]) -> dict[str, np.ndarray]:
     """Process population-size sensitivity decay data.
 
     Parameters:
     - popsize_data: np.ndarray
         Raw population-size sweep decay data.
+    - params: Mapping[str, object]
+        Raw payload parameters containing ``pop_sizes`` and ``M``.
 
     Returns:
-    - tuple[np.ndarray, np.ndarray]
-        Fitted rates and population sizes.
+    - dict[str, np.ndarray]
+        Fitted rates, population sizes, and copied numeric axes.
     """
-    normalized = normalize_decay_array(popsize_data.reshape(25, -1, 25))
-    rates = np.zeros((25, normalized.shape[1]))
-    for i in range(25):
+    pop_sizes = np.asarray(params["pop_sizes"], dtype=int)
+    steps = int(params["M"])
+    fit_mutation_scale = float(params.get("fit_mutation_scale", 1.0))
+    normalized = normalize_decay_array(np.asarray(popsize_data).reshape(len(pop_sizes), -1, steps), steps=steps)
+    rates = np.zeros((len(pop_sizes), normalized.shape[1]))
+    for i in range(len(pop_sizes)):
         for j in range(normalized.shape[1]):
-            rates[i, j] = get_single_decay_rate(normalized[i, j], mut=1.0)[0]
-    return (rates, np.linspace(100, 2500, 25, dtype=int))
+            rates[i, j] = get_single_decay_rate(normalized[i, j], mut=fit_mutation_scale, num_steps=steps)[0]
+    return {"rates": rates, "pop_sizes": pop_sizes, "fit_mutation_scale": np.asarray(fit_mutation_scale)}
 
-def process_mutation_accuracy(mut_data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def process_mutation_accuracy(mut_data: np.ndarray, params: Mapping[str, object]) -> dict[str, np.ndarray]:
     """Process mutation-rate sensitivity decay data.
 
     Parameters:
     - mut_data: np.ndarray
         Raw mutation-rate sweep decay data.
+    - params: Mapping[str, object]
+        Raw payload parameters containing ``mutation_rates`` and ``M``.
 
     Returns:
-    - tuple[np.ndarray, np.ndarray]
+    - dict[str, np.ndarray]
         Fitted rates and mutation-rate values.
     """
-    muts = np.linspace(0.01, 2, 25)
-    normalized = normalize_decay_array(mut_data.reshape(25, -1, 25))
-    rates = np.zeros((25, normalized.shape[1]))
+    muts = np.asarray(params["mutation_rates"], dtype=float)
+    steps = int(params["M"])
+    normalized = normalize_decay_array(np.asarray(mut_data).reshape(len(muts), -1, steps), steps=steps)
+    rates = np.zeros((len(muts), normalized.shape[1]))
     for i, mut in enumerate(muts):
         for j in range(normalized.shape[1]):
-            rates[i, j] = get_single_decay_rate(normalized[i, j], mut=mut)[0]
-    return (rates, muts)
+            rates[i, j] = get_single_decay_rate(normalized[i, j], mut=mut, num_steps=steps)[0]
+    return {"rates": rates, "mutation_rates": muts}
 
 def empirical_metric_comparison(landscapes: dict[str, np.ndarray], decay_arrays: dict[str, np.ndarray]) -> tuple[list[object], ...]:
     """Compute empirical landscape metrics used for comparison figures.
@@ -151,7 +178,13 @@ def empirical_fourier_spectra(landscapes: dict[str, np.ndarray]) -> list[np.ndar
     """
     return [get_landscape_spectrum(landscapes[name], remove_constant=False, on_gpu=True, norm=False) for name in ('GB1', 'TrpB', 'TEV', 'ParD3')]
 
-def heterogeneity_data(nk_heterogeneity: np.ndarray, empirical_decay_arrays: dict[str, np.ndarray], *, method: str='default') -> tuple[list[list[float]], list[list[float]]]:
+def heterogeneity_data(
+    nk_heterogeneity: np.ndarray,
+    empirical_decay_arrays: dict[str, np.ndarray],
+    *,
+    method: str='default',
+    steps: int | None=None,
+) -> tuple[list[list[float]], list[list[float]]]:
     """Fit NK and empirical per-trajectory decay-rate distributions.
 
     Parameters:
@@ -161,15 +194,20 @@ def heterogeneity_data(nk_heterogeneity: np.ndarray, empirical_decay_arrays: dic
         Empirical decay arrays keyed by name.
     - method: str
         Decay fitting method, using ``IK`` for the IK v2 fit.
+    - steps: int | None
+        Number of generation steps in each trajectory. If omitted, the final
+        dimension of ``nk_heterogeneity`` is used.
 
     Returns:
     - tuple[list[list[float]], list[list[float]]]
         NK and empirical fitted decay-rate distributions.
     """
     nk_heterogeneity = np.asarray(nk_heterogeneity)
+    if steps is None:
+        steps = int(nk_heterogeneity.shape[-1])
     if nk_heterogeneity.ndim > 3:
-        nk_heterogeneity = np.array([i.reshape(-1, 25) for i in nk_heterogeneity])
-    empirical = [empirical_decay_arrays[name].mean(axis=2).reshape(-1, 25) for name in ('GB1', 'TrpB', 'TEV', 'ParD3')]
+        nk_heterogeneity = np.array([i.reshape(-1, steps) for i in nk_heterogeneity])
+    empirical = [empirical_decay_arrays[name].mean(axis=2).reshape(-1, steps) for name in ('GB1', 'TrpB', 'TEV', 'ParD3')]
     eps = 1e-08
     nk_rhos = []
     for block in nk_heterogeneity[:4]:
@@ -178,7 +216,7 @@ def heterogeneity_data(nk_heterogeneity: np.ndarray, empirical_decay_arrays: dic
         for curve in block[:sample_count]:
             x = np.clip(curve, eps, None)
             x = x ** 2 / x[0] ** 2
-            vals.append(get_single_decay_rate_IK_v2(x)[0] / 2 if method == 'IK' else get_single_decay_rate(x)[0] / 2)
+            vals.append(get_single_decay_rate_IK_v2(x, num_steps=steps)[0] / 2 if method == 'IK' else get_single_decay_rate(x, num_steps=steps)[0] / 2)
         nk_rhos.append(vals)
     empirical_rhos = []
     for block in empirical:
@@ -186,11 +224,18 @@ def heterogeneity_data(nk_heterogeneity: np.ndarray, empirical_decay_arrays: dic
         for curve in block:
             x = np.clip(curve, eps, None)
             x = x ** 2 / x[0] ** 2
-            vals.append(get_single_decay_rate_IK_v2(x)[0] / 2 if method == 'IK' else get_single_decay_rate(x)[0] / 2)
+            vals.append(get_single_decay_rate_IK_v2(x, num_steps=steps)[0] / 2 if method == 'IK' else get_single_decay_rate(x, num_steps=steps)[0] / 2)
         empirical_rhos.append(vals)
     return (nk_rhos, empirical_rhos)
 
-def subsampling_accuracy(empirical_decay_arrays: dict[str, np.ndarray], *, method: str='default', n_boot: int=1000, seed: int=0) -> list[list[np.ndarray]]:
+def subsampling_accuracy(
+    empirical_decay_arrays: dict[str, np.ndarray],
+    *,
+    method: str='default',
+    n_boot: int=1000,
+    seed: int=0,
+    steps: int | None=None,
+) -> list[list[np.ndarray]]:
     """Bootstrap empirical decay-rate estimates across trajectory counts.
 
     Parameters:
@@ -202,6 +247,9 @@ def subsampling_accuracy(empirical_decay_arrays: dict[str, np.ndarray], *, metho
         Number of bootstrap replicates per trajectory count.
     - seed: int
         NumPy random seed.
+    - steps: int | None
+        Number of generation steps in each trajectory. If omitted, the final
+        dimension of each decay array is used.
 
     Returns:
     - list[list[np.ndarray]]
@@ -211,7 +259,8 @@ def subsampling_accuracy(empirical_decay_arrays: dict[str, np.ndarray], *, metho
     results = []
     eps = 1e-08
     for name in ('GB1', 'TrpB', 'TEV', 'ParD3'):
-        h = empirical_decay_arrays[name].mean(axis=2).reshape(-1, 25)
+        local_steps = int(empirical_decay_arrays[name].shape[-1]) if steps is None else int(steps)
+        h = empirical_decay_arrays[name].mean(axis=2).reshape(-1, local_steps)
         trajectories = np.round(np.logspace(0, np.log10(h.shape[0]), 11)).astype(int)
         traj_results = []
         for traj_number in trajectories:
@@ -220,7 +269,7 @@ def subsampling_accuracy(empirical_decay_arrays: dict[str, np.ndarray], *, metho
                 idx = rng.choice(h.shape[0], size=int(traj_number), replace=True)
                 sample = np.clip(h[idx].mean(axis=0), eps, None)
                 sample = sample ** 2 / sample[0] ** 2
-                boot_vals.append(get_single_decay_rate_IK_v2(sample)[0] / 2 if method == 'IK' else get_single_decay_rate(sample)[0] / 2)
+                boot_vals.append(get_single_decay_rate_IK_v2(sample, num_steps=local_steps)[0] / 2 if method == 'IK' else get_single_decay_rate(sample, num_steps=local_steps)[0] / 2)
             traj_results.append(np.array(boot_vals))
         results.append(traj_results)
     return results
