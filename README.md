@@ -8,7 +8,7 @@ Here we propose **SLIDE**, **S**equence-free **L**andscape **I**nference for **D
 
 ## Installation
 
-Create the Conda environment with mamba:
+Create the CUDA-enabled Conda environment with mamba:
 
 ```bash
 mamba env create -f environment.yml
@@ -22,13 +22,21 @@ conda env create -f environment.yml
 conda activate SLIDE_env
 ```
 
+For a CPU-only installation, use `environment_cpu.yml` instead and activate `SLIDE_env_cpu`.  
+
 To make the environment available as a Jupyter notebook kernel, run:
 
 ```bash
 python -m ipykernel install --user --name SLIDE_env --display-name "Python (SLIDE_env)"
 ```
 
-JAX is included in `environment.yml`. For GPU-specific JAX installations, follow the official JAX installation instructions: https://jax.readthedocs.io/en/latest/installation.html.
+For the CPU-only environment, run:
+
+```bash
+python -m ipykernel install --user --name SLIDE_env_cpu --display-name "Python (SLIDE_env_cpu)"
+```
+
+JAX is included in both environment files. `environment.yml` installs a CUDA-enabled JAX build, while `environment_cpu.yml` installs a CPU-only JAX build.
 
 ## Instructions
 
@@ -37,19 +45,15 @@ The refactored pipeline is notebook-driven. Run the notebooks from the repositor
 1. `data_generation.ipynb`
    - Generates raw simulation products.
    - Creates `raw_data/` if needed.
-   - Calls reusable functions from `slide/`; it does not execute files from `scripts/`.
 
 2. `data_processing.ipynb`
-   - Loads raw products from `raw_data/`.
-   - Processes them into stable plotting inputs.
+   - Processes raw products from `raw_data/` into plotting inputs.
    - Creates `processed_data/` if needed.
 
 3. `data_visualisation.ipynb`
    - Loads plotting inputs from `processed_data/`.
-   - Defines `save_type_list = ["pdf", "eps", "png"]`.
    - Saves figures into `figures/pdf/`, `figures/eps/`, and `figures/png/`.
 
-The original notebooks and scripts are retained as provenance for the paper analysis, but the refactored workflow above should use the three new notebooks and the `slide/` package.
 
 ## Repository Structure
 
@@ -59,6 +63,7 @@ SLIDE/
 ├── data_processing.ipynb          # Process raw data into processed_data/
 ├── data_visualisation.ipynb       # Create figures in figures/{pdf,eps,png}/
 ├── environment.yml                # Conda/mamba environment definition for SLIDE_env
+├── environment_cpu.yml            # CPU-only Conda/mamba environment definition for SLIDE_env_cpu
 ├── slide/                         # Refactored reusable library code
 │   ├── data_generation.py         # Raw-data simulation and product registry
 │   ├── data_processing.py         # Processing helpers for plotting inputs
@@ -71,9 +76,28 @@ SLIDE/
 ├── raw_data/                      # Generated raw products; created by data_generation.ipynb
 ├── processed_data/                # Generated plotting inputs; created by data_processing.ipynb
 ├── figures/                       # Generated figures; created by data_visualisation.ipynb
-├── scripts/                       # Original generation scripts retained as provenance
-├── ruggedness_figures_*.ipynb     # Original paper notebooks retained as provenance
 └── README.md
 ```
 
-[Steel Lab Oxford](http://steel.ac/)
+
+## Citation
+
+If you use SLIDE, please cite:
+
+Towers S, James J, Steel H, Kempf I (2026) Sequence-free landscape inference for directed evolution. *PLOS Computational Biology*. Volume, issue, article number, and DOI to be added.
+
+```bibtex
+@article{towers2026slide,
+  title = {Sequence-free landscape inference for directed evolution},
+  author = {Towers, Sebastian and James, Jessica and Steel, Harrison and Kempf, Idris},
+  journal = {PLOS Computational Biology},
+  year = {2026},
+  volume = {TBD},
+  number = {TBD},
+  pages = {TBD},
+  doi = {TBD},
+  url = {TBD}
+}
+```
+
+[Steel Lab Oxford](http://steel.ac/) | [Control Group](https://eng.ox.ac.uk/control)
