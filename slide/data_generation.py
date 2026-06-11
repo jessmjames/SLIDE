@@ -7,9 +7,8 @@ and small registry helpers used by that notebook and by ``data_processing.ipynb`
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Callable
 
 import jax
 import jax.numpy as jnp
@@ -44,11 +43,12 @@ EMPIRICAL_LANDSCAPE_FILES: dict[str, str] = {
 def load_empirical_landscape(name: str) -> np.ndarray:
     """Load an empirical landscape array by short name.
 
-    Args:
-        name: Landscape key, one of ``GB1``, ``TrpB``, ``TEV``, ``ParD3``, or
-            the file-level alias ``E3``.
+    Parameters:
+    - name: str
+        Landscape key, one of ``GB1``, ``TrpB``, ``TEV``, ``ParD3``, or the file-level alias ``E3``.
 
     Returns:
+    - np.ndarray
         The empirical fitness landscape as a NumPy array.
     """
 
@@ -58,12 +58,13 @@ def load_empirical_landscape(name: str) -> np.ndarray:
 def all_start_locs(landscape: np.ndarray) -> np.ndarray:
     """Return every genotype coordinate in an empirical landscape.
 
-    Args:
-        landscape: N-dimensional empirical fitness array.
+    Parameters:
+    - landscape: np.ndarray
+        N-dimensional empirical fitness array.
 
     Returns:
-        Integer array of shape ``(landscape.size, landscape.ndim)`` containing
-        all coordinates in row-major order.
+    - np.ndarray
+        Integer array of shape ``(landscape.size, landscape.ndim)`` containing all coordinates in row-major order.
     """
 
     return np.column_stack(np.unravel_index(np.arange(landscape.size), landscape.shape)).astype(np.int32)
@@ -78,13 +79,18 @@ def uniform_start_locs(
 ) -> np.ndarray:
     """Sample starting genotypes uniformly from an empirical landscape.
 
-    Args:
-        landscape: N-dimensional empirical fitness array.
-        num_starts: Number of starting coordinates to sample.
-        seed: NumPy random seed for reproducible sampling.
-        replace: Whether the same coordinate may be sampled more than once.
+    Parameters:
+    - landscape: np.ndarray
+        N-dimensional empirical fitness array.
+    - num_starts: int
+        Number of starting coordinates to sample.
+    - seed: int
+        NumPy random seed for reproducible sampling.
+    - replace: bool
+        Whether the same coordinate may be sampled more than once.
 
     Returns:
+    - np.ndarray
         Integer coordinate array with shape ``(num_starts, landscape.ndim)``.
     """
 
@@ -96,13 +102,15 @@ def uniform_start_locs(
 def evenly_spaced_start_locs(landscape: np.ndarray, *, num_starts: int = 10000) -> np.ndarray:
     """Choose deterministic, evenly spaced starting coordinates.
 
-    Args:
-        landscape: N-dimensional empirical fitness array.
-        num_starts: Number of coordinates to return.
+    Parameters:
+    - landscape: np.ndarray
+        N-dimensional empirical fitness array.
+    - num_starts: int
+        Number of coordinates to return.
 
     Returns:
-        Integer coordinate array with approximately even coverage of flattened
-        landscape indices.
+    - np.ndarray
+        Integer coordinate array with approximately even coverage of flattened landscape indices.
     """
 
     flat_indices = np.round(np.linspace(0, landscape.size - 1, num_starts)).astype(int)
@@ -112,12 +120,16 @@ def evenly_spaced_start_locs(landscape: np.ndarray, *, num_starts: int = 10000) 
 def percentile_start_locs(landscape: np.ndarray, *, num_starts: int = 10, percentile: float = 99) -> np.ndarray:
     """Choose starts closest to a high-fitness percentile threshold.
 
-    Args:
-        landscape: N-dimensional empirical fitness array.
-        num_starts: Number of starting coordinates to return.
-        percentile: Fitness percentile used as the target threshold.
+    Parameters:
+    - landscape: np.ndarray
+        N-dimensional empirical fitness array.
+    - num_starts: int
+        Number of starting coordinates to return.
+    - percentile: float
+        Fitness percentile used as the target threshold.
 
     Returns:
+    - np.ndarray
         Integer coordinate array of starts near the requested percentile.
     """
 
@@ -133,11 +145,14 @@ def percentile_start_locs(landscape: np.ndarray, *, num_starts: int = 10, percen
 def repeated_population(start: np.ndarray, popsize: int) -> jnp.ndarray:
     """Create a clonal population from one starting genotype.
 
-    Args:
-        start: One genotype coordinate.
-        popsize: Number of population members.
+    Parameters:
+    - start: np.ndarray
+        One genotype coordinate.
+    - popsize: int
+        Number of population members.
 
     Returns:
+    - jnp.ndarray
         JAX integer array of shape ``(popsize, len(start))``.
     """
 
@@ -157,19 +172,25 @@ def run_empirical_diffusion_replicates(
 ) -> dict[str, jax.Array]:
     """Run mutation-only diffusion replicates on an empirical landscape.
 
-    Args:
-        rng: JAX random key used to seed replicate trajectories.
-        landscape: Empirical fitness landscape array.
-        start: Starting genotype coordinate.
-        popsize: Population size for each replicate.
-        mutation_rate: Per-site mutation probability used by the mutation
-            function.
-        num_reps: Number of independent replicate trajectories.
-        num_steps: Number of mutation-only generations.
+    Parameters:
+    - rng: jax.Array
+        JAX random key used to seed replicate trajectories.
+    - landscape: np.ndarray
+        Empirical fitness landscape array.
+    - start: np.ndarray
+        Starting genotype coordinate.
+    - popsize: int
+        Population size for each replicate.
+    - mutation_rate: float
+        Per-site mutation probability used by the mutation function.
+    - num_reps: int
+        Number of independent replicate trajectories.
+    - num_steps: int
+        Number of mutation-only generations.
 
     Returns:
-        A history dictionary with ``fitness`` and ``pop`` arrays. The leading
-        dimension indexes replicates.
+    - dict[str, jax.Array]
+        A history dictionary with ``fitness`` and ``pop`` arrays. The leading dimension indexes replicates.
     """
 
     fitness_function = build_empirical_landscape_function(jnp.asarray(landscape))
@@ -203,19 +224,27 @@ def generate_empirical_decay_curves(
 ) -> np.ndarray:
     """Generate empirical no-selection fitness decay curves for many starts.
 
-    Args:
-        landscape: Empirical fitness landscape array.
-        mutation_rate: Per-site mutation probability.
-        popsize: Population size for each starting genotype.
-        starts: Integer coordinate array of starting genotypes.
-        num_reps: Number of replicate diffusion trajectories per start.
-        num_steps: Number of mutation-only generations.
-        seed: Master JAX seed.
-        batch_size: Number of starts to process per vectorized chunk.
+    Parameters:
+    - landscape: np.ndarray
+        Empirical fitness landscape array.
+    - mutation_rate: float
+        Per-site mutation probability.
+    - popsize: int
+        Population size for each starting genotype.
+    - starts: np.ndarray
+        Integer coordinate array of starting genotypes.
+    - num_reps: int
+        Number of replicate diffusion trajectories per start.
+    - num_steps: int
+        Number of mutation-only generations.
+    - seed: int
+        Master JAX seed.
+    - batch_size: int
+        Number of starts to process per vectorized chunk.
 
     Returns:
-        NumPy array with mean fitness trajectories, indexed by start, replicate,
-        and generation.
+    - np.ndarray
+        NumPy array with mean fitness trajectories, indexed by start, replicate, and generation.
     """
 
     rng_seeds = jr.split(jr.PRNGKey(seed), len(starts))
@@ -254,20 +283,29 @@ def run_nk_diffusion_replicates(
 ) -> dict[str, jax.Array]:
     """Run mutation-only diffusion replicates on one NK landscape.
 
-    Args:
-        rng: JAX random key used for the NK landscape and replicate seeds.
-        n_sites: Number of sites in the NK landscape.
-        k: NK epistatic interaction parameter.
-        num_alleles: Number of alleles per site.
-        start: Starting genotype coordinate.
-        popsize: Population size for each replicate.
-        mutation_rate: Per-site mutation probability.
-        num_reps: Number of replicate trajectories.
-        num_steps: Number of mutation-only generations.
+    Parameters:
+    - rng: jax.Array
+        JAX random key used for the NK landscape and replicate seeds.
+    - n_sites: int
+        Number of sites in the NK landscape.
+    - k: int
+        NK epistatic interaction parameter.
+    - num_alleles: int
+        Number of alleles per site.
+    - start: np.ndarray
+        Starting genotype coordinate.
+    - popsize: int
+        Population size for each replicate.
+    - mutation_rate: float
+        Per-site mutation probability.
+    - num_reps: int
+        Number of replicate trajectories.
+    - num_steps: int
+        Number of mutation-only generations.
 
     Returns:
-        A history dictionary with ``fitness`` and ``pop`` arrays. The leading
-        dimension indexes replicates.
+    - dict[str, jax.Array]
+        A history dictionary with ``fitness`` and ``pop`` arrays. The leading dimension indexes replicates.
     """
 
     fitness_function = build_NK_landscape_function(rng, n_sites, k, fitness_distribution=jr.normal)
@@ -290,12 +328,16 @@ def run_nk_diffusion_replicates(
 def nk_uniform_start_locs(*, n_sites: int, num_alleles: int, num_starts: int) -> np.ndarray:
     """Return deterministic starting coordinates for an NK genotype space.
 
-    Args:
-        n_sites: Number of genotype sites.
-        num_alleles: Number of alleles per site.
-        num_starts: Number of starts to return.
+    Parameters:
+    - n_sites: int
+        Number of genotype sites.
+    - num_alleles: int
+        Number of alleles per site.
+    - num_starts: int
+        Number of starts to return.
 
     Returns:
+    - np.ndarray
         Integer coordinate array with shape ``(num_starts, n_sites)``.
     """
 
@@ -318,18 +360,28 @@ def generate_nk_decay_curves(
 ) -> np.ndarray:
     """Generate no-selection NK fitness decay curves across K values.
 
-    Args:
-        n_sites: Number of NK sites.
-        num_alleles: Number of alleles per site.
-        k_values: NK ``K`` values to simulate.
-        mutation_rate: Total mutation rate, divided by ``n_sites`` internally.
-        popsize: Population size for each start.
-        num_starts: Number of deterministic starts in genotype space.
-        num_reps: Number of replicate trajectories per start.
-        num_steps: Number of mutation-only generations.
-        seed: Master JAX seed.
+    Parameters:
+    - n_sites: int
+        Number of NK sites.
+    - num_alleles: int
+        Number of alleles per site.
+    - k_values: Sequence[int]
+        NK ``K`` values to simulate.
+    - mutation_rate: float
+        Total mutation rate, divided by ``n_sites`` internally.
+    - popsize: int
+        Population size for each start.
+    - num_starts: int
+        Number of deterministic starts in genotype space.
+    - num_reps: int
+        Number of replicate trajectories per start.
+    - num_steps: int
+        Number of mutation-only generations.
+    - seed: int
+        Master JAX seed.
 
     Returns:
+    - np.ndarray
         NumPy array indexed by K value, start, replicate, and generation.
     """
 
@@ -359,11 +411,12 @@ def generate_nk_decay_curves(
 def strategy_grid(num_options: int) -> tuple[jnp.ndarray, jnp.ndarray, list[int]]:
     """Construct the base-chance/threshold/splitting grid for DE sweeps.
 
-    Args:
-        num_options: Number of base-chance and split options. The paper uses 5
-            or 7 depending on the sweep.
+    Parameters:
+    - num_options: int
+        Number of base-chance and split options. The paper uses 5 or 7 depending on the sweep.
 
     Returns:
+    - tuple[jnp.ndarray, jnp.ndarray, list[int]]
         Threshold samples, base-chance samples, and population split sizes.
     """
 
@@ -393,20 +446,32 @@ def _run_strategy(
 ) -> jax.Array:
     """Run one directed-evolution strategy configuration.
 
-    Args:
-        rng: JAX random key.
-        fitness_function: JAX-compatible fitness lookup function.
-        n_sites: Number of genotype sites.
-        num_alleles: Number of alleles per site.
-        start: Optional starting genotype; if absent, one random start is used.
-        split_size: Number of split subpopulations.
-        base_chance: Baseline selection probability.
-        threshold: Rank threshold for guaranteed selection.
-        popsize: Total population size before splitting.
-        mutation_rate: Per-site mutation probability.
-        num_steps: Number of directed-evolution generations.
+    Parameters:
+    - rng: jax.Array
+        JAX random key.
+    - fitness_function: Callable[[jnp.ndarray], jnp.ndarray]
+        JAX-compatible fitness lookup function.
+    - n_sites: int
+        Number of genotype sites.
+    - num_alleles: int
+        Number of alleles per site.
+    - start: np.ndarray | None
+        Optional starting genotype; if absent, one random start is used.
+    - split_size: int
+        Number of split subpopulations.
+    - base_chance: float
+        Baseline selection probability.
+    - threshold: float
+        Rank threshold for guaranteed selection.
+    - popsize: int
+        Total population size before splitting.
+    - mutation_rate: float
+        Per-site mutation probability.
+    - num_steps: int
+        Number of directed-evolution generations.
 
     Returns:
+    - jax.Array
         Maximum final fitness observed across split subpopulations.
     """
 
@@ -448,20 +513,32 @@ def generate_nk_strategy_sweep(
 ) -> np.ndarray:
     """Run NK directed-evolution strategy sweeps.
 
-    Args:
-        n_sites: Number of NK sites.
-        num_alleles: Number of alleles per site.
-        k_values: NK ``K`` values to simulate.
-        mutation_rate: Total mutation rate, divided by ``n_sites`` internally.
-        popsize: Total population size.
-        num_landscapes: Number of random NK landscapes per K value.
-        num_reps: Replicates per strategy.
-        num_steps: Directed-evolution generations.
-        strategy_grid_size: Number of base-chance/splitting options.
-        outer_reps: Number of outer repeats.
-        seed: Master JAX seed.
+    Parameters:
+    - n_sites: int
+        Number of NK sites.
+    - num_alleles: int
+        Number of alleles per site.
+    - k_values: Sequence[int]
+        NK ``K`` values to simulate.
+    - mutation_rate: float
+        Total mutation rate, divided by ``n_sites`` internally.
+    - popsize: int
+        Total population size.
+    - num_landscapes: int
+        Number of random NK landscapes per K value.
+    - num_reps: int
+        Replicates per strategy.
+    - num_steps: int
+        Directed-evolution generations.
+    - strategy_grid_size: int
+        Number of base-chance/splitting options.
+    - outer_reps: int
+        Number of outer repeats.
+    - seed: int
+        Master JAX seed.
 
     Returns:
+    - np.ndarray
         NumPy array of strategy performance scores.
     """
 
@@ -516,18 +593,28 @@ def generate_empirical_strategy_sweep(
 ) -> np.ndarray:
     """Run empirical directed-evolution strategy sweeps.
 
-    Args:
-        landscape: Empirical fitness landscape array.
-        starts: Starting genotype coordinates.
-        mutation_rate: Per-site mutation probability.
-        popsize: Total population size.
-        num_reps: Replicates per strategy.
-        num_steps: Directed-evolution generations.
-        strategy_grid_size: Number of base-chance/splitting options.
-        outer_reps: Number of outer repeats per starting genotype.
-        seed: Master JAX seed.
+    Parameters:
+    - landscape: np.ndarray
+        Empirical fitness landscape array.
+    - starts: np.ndarray
+        Starting genotype coordinates.
+    - mutation_rate: float
+        Per-site mutation probability.
+    - popsize: int
+        Total population size.
+    - num_reps: int
+        Replicates per strategy.
+    - num_steps: int
+        Directed-evolution generations.
+    - strategy_grid_size: int
+        Number of base-chance/splitting options.
+    - outer_reps: int
+        Number of outer repeats per starting genotype.
+    - seed: int
+        Master JAX seed.
 
     Returns:
+    - np.ndarray
         NumPy array of empirical strategy performance scores.
     """
 
@@ -721,6 +808,7 @@ def expected_raw_outputs() -> dict[str, Path]:
     """Return the expected raw output paths for the retained pipeline products.
 
     Returns:
+    - dict[str, Path]
         Mapping from raw product key to its path under ``raw_data``.
     """
 
@@ -731,6 +819,7 @@ def missing_raw_outputs() -> dict[str, Path]:
     """Return expected raw output paths that do not currently exist.
 
     Returns:
+    - dict[str, Path]
         Mapping from missing raw product key to its path under ``raw_data``.
     """
 
@@ -740,13 +829,15 @@ def missing_raw_outputs() -> dict[str, Path]:
 def nk_grid_pairs(n_range: tuple[int, int] = (10, 50), num_samples: int = 10) -> list[tuple[int, int]]:
     """Construct the NK ``(N, K)`` grid used by Figures 3 and 5.
 
-    Args:
-        n_range: Inclusive range of N values sampled linearly.
-        num_samples: Number of N samples and number of K samples per N.
+    Parameters:
+    - n_range: tuple[int, int]
+        Inclusive range of N values sampled linearly.
+    - num_samples: int
+        Number of N samples and number of K samples per N.
 
     Returns:
-        List of ``(N, K)`` pairs in the historical reversed order used by the
-        original scripts and processing code.
+    - list[tuple[int, int]]
+        List of ``(N, K)`` pairs in the historical reversed order used by the original scripts and processing code.
     """
 
     n_values = np.linspace(n_range[0], n_range[1], num=num_samples).astype(int)

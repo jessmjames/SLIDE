@@ -1,4 +1,7 @@
-from typing import Any
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping, Sequence
+
 import pickle
 import numpy as np
 import jax
@@ -12,16 +15,50 @@ import tqdm
 from scipy.optimize import curve_fit
 import scipy.optimize
 import pandas as pd
+
+Array = jax.Array | np.ndarray
+Shape = tuple[int, ...] | list[int]
+SelectionShape = Callable[[jax.Array, Mapping[str, float]], jax.Array]
+
 os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.7'
 
-def _legacy_directed_evolution(rng: Any, selection_strategy: Any, selection_params: Any, empirical: Any=False, N: Any=None, K: Any=None, landscape: Any=None, popsize: Any=100, mut_chance: Any=0.01, num_steps: Any=50, num_reps: Any=10, define_i_pop: Any=None, pre_optimisation_steps: Any=0, average: Any=True) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def _legacy_directed_evolution(rng: jax.Array, selection_strategy: SelectionShape, selection_params: Mapping[str, float], empirical: bool=False, N: int | None=None, K: int | None=None, landscape: Array | None=None, popsize: int=100, mut_chance: float=0.01, num_steps: int=50, num_reps: int=10, define_i_pop: Array | None=None, pre_optimisation_steps: int=0, average: bool=True) -> dict[str, jax.Array]:
+    """Run the historical directed-evolution wrapper used by old analyses.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - rng: jax.Array
+        JAX PRNG key for landscape generation and replicate runs.
+    - selection_strategy: SelectionShape
+        Selection probability function.
+    - selection_params: Mapping[str, float]
+        Parameters for the selection strategy.
+    - empirical: bool
+        Whether to use an empirical landscape rather than a generated NK landscape.
+    - N: int | None
+        Number of genotype sites for generated NK landscapes.
+    - K: int | None
+        NK interaction parameter for generated NK landscapes.
+    - landscape: Array | None
+        Empirical landscape used when ``empirical`` is true.
+    - popsize: int
+        Population size.
+    - mut_chance: float
+        Per-site mutation probability.
+    - num_steps: int
+        Number of directed-evolution generations.
+    - num_reps: int
+        Number of replicate trajectories.
+    - define_i_pop: Array | None
+        Optional initial population.
+    - pre_optimisation_steps: int
+        Number of preliminary selection generations.
+    - average: bool
+        Historical flag retained for compatibility.
+
+    Returns:
+    - dict[str, jax.Array]
+        Replicate fitness and population histories.
+    """
     r1, r2, r3 = jr.split(rng, 3)
     if define_i_pop == None:
         i_pop = jnp.array([jr.randint(r1, (N,), 0, 2)] * popsize)
@@ -43,14 +80,17 @@ object consumed by downstream generation, processing, or visualisation cells."""
     results = vmapped_run(rng_seeds)
     return results
 
-def get_lin_coeffs(landscape_arr: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_lin_coeffs(landscape_arr: Array) -> tuple[jax.Array | np.ndarray, list[jax.Array | np.ndarray]]:
+    """Estimate additive linear coefficients for a landscape.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape_arr: Array
+        N-dimensional fitness landscape.
+
+    Returns:
+    - tuple[jax.Array | np.ndarray, list[jax.Array]]
+        Mean fitness and one marginal coefficient vector per landscape axis.
+    """
     num_dims = len(landscape_arr.shape)
     const_term = landscape_arr.mean()
     lin_coeffs = []
@@ -60,14 +100,19 @@ object consumed by downstream generation, processing, or visualisation cells."""
         lin_coeffs.append((landscape_arr - const_term).mean(axis=tuple(a_to_m_through)))
     return (const_term, lin_coeffs)
 
-def get_lin_landscape(const_term: Any, lin_coeffs: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_lin_landscape(const_term: float | jax.Array | np.ndarray, lin_coeffs: Sequence[Array]) -> jax.Array:
+    """Reconstruct an additive landscape from linear coefficients.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - const_term: float | jax.Array
+        Constant fitness offset.
+    - lin_coeffs: Sequence[Array]
+        One marginal coefficient vector per landscape axis.
+
+    Returns:
+    - jax.Array
+        Additive landscape with shape inferred from the coefficients.
+    """
     final_shape = [len(l) for l in lin_coeffs]
     final_result = jnp.zeros(final_shape)
     thing_r = list(range(len(lin_coeffs)))
@@ -76,14 +121,17 @@ object consumed by downstream generation, processing, or visualisation cells."""
         final_result += jnp.expand_dims(jnp.array(lin_coeffs[i]), axis=axis_shape)
     return final_result + const_term
 
-def roughness_to_slope(landscape_arr: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def roughness_to_slope(landscape_arr: Array) -> jax.Array:
+    """Compute residual roughness relative to additive slope magnitude.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape_arr: Array
+        N-dimensional fitness landscape.
+
+    Returns:
+    - jax.Array
+        Ratio of additive-model residual standard deviation to mean slope.
+    """
     const_term, lin_coeffs = get_lin_coeffs(landscape_arr)
     mean_slope = jnp.abs(jnp.array(lin_coeffs)).sum(axis=-1).mean()
     lin_landy = get_lin_landscape(const_term, lin_coeffs)
@@ -91,27 +139,39 @@ object consumed by downstream generation, processing, or visualisation cells."""
     roughness = error_land.std()
     return roughness / mean_slope
 
-def landscape_r2(landscape_arr: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def landscape_r2(landscape_arr: Array) -> jax.Array:
+    """Compute the additive linear model R-squared for a landscape.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape_arr: Array
+        N-dimensional fitness landscape.
+
+    Returns:
+    - jax.Array
+        Fraction of landscape variance explained by additive terms.
+    """
     const_term, lin_coeffs = get_lin_coeffs(landscape_arr)
     lin_landy = get_lin_landscape(const_term, lin_coeffs)
     error_land = landscape_arr - lin_landy
     return 1 - error_land.var() / landscape_arr.var()
 
-def get_convergence_rate(rng: Any, N: Any, K: Any, num_reps: Any=5) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_convergence_rate(rng: jax.Array, N: int, K: int, num_reps: int=5) -> tuple[float, dict[str, object]]:
+    """Estimate a convergence decay rate on generated NK landscapes.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - rng: jax.Array
+        JAX PRNG key.
+    - N: int
+        Number of genotype sites.
+    - K: int
+        NK interaction parameter.
+    - num_reps: int
+        Number of replicate trajectories.
+
+    Returns:
+    - tuple[float, dict[str, object]]
+        Mean fitted decay rate and intermediate decay information.
+    """
     params = {'threshold': 0.0, 'base_chance': 1.0}
     run = _legacy_directed_evolution(rng, N=N, K=K, selection_strategy=slct.base_chance_threshold_select, selection_params=params, popsize=2500, mut_chance=0.1 / N, num_steps=25, num_reps=num_reps, pre_optimisation_steps=20, average=False)['fitness'].mean(axis=-1)
     decay_rates = [get_single_decay_rate(run[i]) for i in range(num_reps)]
@@ -119,36 +179,55 @@ object consumed by downstream generation, processing, or visualisation cells."""
     extra_info = {'decay_info': run, 'all_decays': decay_rates}
     return (mean_decay_rate, extra_info)
 
-def get_array_from_fun(func: Any, shape: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_array_from_fun(func: Callable[[Array], Array], shape: Shape) -> Array:
+    """Evaluate a vectorized landscape function on every coordinate in a shape.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - func: Callable[[Array], Array]
+        Function mapping coordinates to values.
+    - shape: Shape
+        Output landscape shape.
+
+    Returns:
+    - jax.Array | np.ndarray
+        Function values reshaped to ``shape``.
+    """
     to_see = np.stack(np.indices(shape), axis=-1).reshape(jnp.prod(jnp.array(shape)), len(shape))
     values = func(to_see)
     return values.reshape(shape)
 
-def get_nk_l_o_shape(rng: Any, N: Any, K: Any, shape: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_nk_l_o_shape(rng: jax.Array, N: int, K: int, shape: Shape) -> Array:
+    """Generate an NK landscape array with an explicit output shape.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - rng: jax.Array
+        JAX PRNG key.
+    - N: int
+        Number of genotype sites.
+    - K: int
+        NK interaction parameter.
+    - shape: Shape
+        Shape of the output landscape array.
+
+    Returns:
+    - jax.Array | np.ndarray
+        Generated NK fitness landscape.
+    """
     return get_array_from_fun(build_NK_landscape_function(rng, N, K), shape)
 
-def local_epistasis(landscape: Any, point: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def local_epistasis(landscape: Array, point: np.ndarray) -> dict[str, int]:
+    """Count pairwise sign-epistasis classes around one genotype.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - point: np.ndarray
+        Genotype coordinate used as the reference point.
+
+    Returns:
+    - dict[str, int]
+        Counts of simple sign, reciprocal sign, and no-epistasis cases.
+    """
     shape = landscape.shape
     N = len(shape)
     simple_sign_episasis = 0
@@ -187,27 +266,35 @@ object consumed by downstream generation, processing, or visualisation cells."""
     to_return = {'simple_sign_episasis': simple_sign_episasis, 'reciprocal_sign_epistasis': reciprocal_sign_epistasis, 'no_epistasis': no_epistasis}
     return to_return
 
-def generate_range_cube(shape: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def generate_range_cube(shape: Shape) -> jax.Array:
+    """Return the mutational distance layer for each landscape coordinate.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - shape: Shape
+        Landscape shape.
+
+    Returns:
+    - jax.Array
+        Integer array assigning each coordinate to a distance layer.
+    """
     base_cube = jnp.zeros(shape, dtype=jnp.int32)
     for i, d_size in enumerate(shape):
         base_cube = base_cube.at[tuple([slice(None) if j != i else jnp.arange(1, d_size) for j in range(len(shape))])].add(1)
     return base_cube
 
-def find_acc_path_length(landscape: Any, starting_point: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def find_acc_path_length(landscape: Array, starting_point: Array) -> jax.Array:
+    """Count accessible monotonic paths from a starting point.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - starting_point: Array
+        Genotype coordinate used as the path origin.
+
+    Returns:
+    - jax.Array
+        Path counts indexed by landscape coordinate.
+    """
     shape = landscape.shape
     N = len(shape)
     range_cube = generate_range_cube(shape)
@@ -224,35 +311,49 @@ object consumed by downstream generation, processing, or visualisation cells."""
     rotated_num_paths = jnp.roll(num_paths, starting_point, axis=tuple(range(N)))
     return num_paths
 
-def get_argmax_index(landscape: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_argmax_index(landscape: Array) -> tuple[jax.Array, ...]:
+    """Return the coordinate of the maximum landscape value.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+
+    Returns:
+    - tuple[jax.Array, ...]
+        Coordinate returned by ``jax.numpy.unravel_index``.
+    """
     return jnp.unravel_index(landscape.argmax(), landscape.shape)
 
-def max_possible_paths(shape: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def max_possible_paths(shape: Shape) -> jax.Array:
+    """Compute the maximum possible monotonic paths across a landscape shape.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - shape: Shape
+        Landscape shape.
+
+    Returns:
+    - jax.Array
+        Maximum path count under the combinatorial approximation used here.
+    """
     N = len(shape)
     return jax.scipy.special.factorial(N) * jnp.prod(jnp.array(shape) - 1)
 
-def get_mean_paths_to_max(landscape: Any, norm: Any=True, extra_slack: Any=0) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_mean_paths_to_max(landscape: Array, norm: bool=True, extra_slack: int=0) -> jax.Array:
+    """Compute the mean accessible path count to the global maximum.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - norm: bool
+        Whether to normalize by the maximum possible path count.
+    - extra_slack: int
+        Number of terminal distance layers to include instead of only the opposite
+        corner region.
+
+    Returns:
+    - jax.Array
+        Mean accessible path count or normalized mean path count.
+    """
     max_loc = jnp.array(get_argmax_index(landscape))
     paths = find_acc_path_length(landscape, max_loc)
     range_cube = generate_range_cube(shape=landscape.shape)
@@ -267,14 +368,19 @@ object consumed by downstream generation, processing, or visualisation cells."""
     else:
         return paths[opposite_side_slice].mean()
 
-def find_local_max(landscape_array: Any, limit_fit_quant: Any=0.5) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def find_local_max(landscape_array: Array, limit_fit_quant: float=0.5) -> jax.Array:
+    """Identify weak local maxima above a fitness quantile threshold.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape_array: Array
+        N-dimensional fitness landscape.
+    - limit_fit_quant: float
+        Quantile below which points are excluded from local maxima.
+
+    Returns:
+    - jax.Array
+        Boolean array marking weak local maxima.
+    """
     shape = landscape_array.shape
     local_max_array = jnp.zeros(shape)
     limit_fit = jnp.quantile(landscape_array, limit_fit_quant)
@@ -286,14 +392,17 @@ object consumed by downstream generation, processing, or visualisation cells."""
     is_weak_local_max = local_max_array == 0
     return is_weak_local_max
 
-def find_distance_to_set(set_array: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def find_distance_to_set(set_array: Array) -> jax.Array:
+    """Compute Hamming-like distance to the nearest true entry in a mask.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - set_array: Array
+        Boolean mask over genotype coordinates.
+
+    Returns:
+    - jax.Array
+        Distance from each coordinate to the nearest true mask entry.
+    """
     shape = set_array.shape
     N = len(shape)
     current_distances = jnp.ones(shape) * jnp.inf
@@ -305,51 +414,69 @@ object consumed by downstream generation, processing, or visualisation cells."""
                 current_distances = jnp.minimum(current_distances, rolled_array + 1)
     return current_distances
 
-def find_distance_to_closest_max(landscape_arrays: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def find_distance_to_closest_max(landscape_arrays: Array) -> jax.Array:
+    """Compute mean normalized distance to the closest local maximum.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape_arrays: Array
+        N-dimensional fitness landscape.
+
+    Returns:
+    - jax.Array
+        Mean distance to local maxima divided by the number of sites.
+    """
     return find_distance_to_set(find_local_max(landscape_arrays)).mean() / len(landscape_arrays.shape)
 
-def generate_range_cube(shape: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def generate_range_cube(shape: Shape) -> jax.Array:
+    """Return the mutational distance layer for each landscape coordinate.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - shape: Shape
+        Landscape shape.
+
+    Returns:
+    - jax.Array
+        Integer array assigning each coordinate to a distance layer.
+    """
     base_cube = jnp.zeros(shape, dtype=jnp.int32)
     for i, d_size in enumerate(shape):
         base_cube = base_cube.at[tuple([slice(None) if j != i else jnp.arange(1, d_size) for j in range(len(shape))])].add(1)
     return base_cube
 
-def collapse_range(array: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def collapse_range(array: Array) -> np.ndarray:
+    """Sum array values by mutational distance layer.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - array: Array
+        N-dimensional values to collapse by range layer.
+
+    Returns:
+    - np.ndarray
+        One value per mutational distance layer.
+    """
     range_cube = generate_range_cube(array.shape)
     vals = []
     for i in range(range_cube.max() + 1):
         vals.append((array * (range_cube == i)).sum())
     return np.array(vals)
 
-def get_decay_curve(landscape: Any, start: Any, max_mut: Any=2.0, num_vals: Any=20) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_decay_curve(landscape: np.ndarray, start: np.ndarray, max_mut: float=2.0, num_vals: int=20) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute the theoretical Fourier decay curve from one starting genotype.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape: np.ndarray
+        N-dimensional fitness landscape.
+    - start: np.ndarray
+        Starting genotype coordinate.
+    - max_mut: float
+        Maximum mutation distance to evaluate.
+    - num_vals: int
+        Number of mutation values in the curve.
+
+    Returns:
+    - tuple[np.ndarray, np.ndarray, np.ndarray]
+        Mutation values, decay curve, and collapsed Fourier terms.
+    """
     muts = np.linspace(0, max_mut, num_vals)
     shape = landscape.shape
     N = len(shape)
@@ -365,28 +492,42 @@ object consumed by downstream generation, processing, or visualisation cells."""
     decay_curve = np.sum(raw_terms[None, :] * exp_vaks, axis=1)
     return (muts, decay_curve, raw_terms)
 
-def fftn_jax(x: Any, axes: Any=None) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def fftn_jax(x: jax.Array, axes: Sequence[int] | None=None) -> jax.Array:
+    """Apply a JAX FFT across selected axes.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - x: jax.Array
+        Input array.
+    - axes: Sequence[int] | None
+        Axes over which to apply FFT; all axes are used when omitted.
+
+    Returns:
+    - jax.Array
+        FFT-transformed array.
+    """
     if axes is None:
         axes = tuple(range(x.ndim))
     for ax in axes:
         x = jax.numpy.fft.fft(x, axis=ax)
     return x
 
-def get_landscape_spectrum(landscape: Any, norm: Any=False, remove_constant: Any=True, on_gpu: Any=False) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_landscape_spectrum(landscape: Array, norm: bool=False, remove_constant: bool=True, on_gpu: bool=False) -> np.ndarray:
+    """Collapse landscape Fourier power by mutational distance layer.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - norm: bool
+        Whether to L2-normalize the collapsed spectrum.
+    - remove_constant: bool
+        Whether to drop the zero-frequency coefficient.
+    - on_gpu: bool
+        Whether to use the JAX FFT path.
+
+    Returns:
+    - np.ndarray
+        Collapsed real-valued spectrum.
+    """
     if on_gpu:
         landy_fft = fftn_jax(landscape)
     else:
@@ -400,14 +541,25 @@ object consumed by downstream generation, processing, or visualisation cells."""
         collapsed_spectrum = collapsed_spectrum / (collapsed_spectrum * collapsed_spectrum).sum() ** 0.5
     return collapsed_spectrum
 
-def get_exp_matrix(N: int, A: int, mutations: np.array, is_squared: bool=True, fix_b0: bool=False) -> np.array:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_exp_matrix(N: int, A: int, mutations: np.ndarray, is_squared: bool=True, fix_b0: bool=False) -> np.ndarray:
+    """Build the exponential design matrix for Fourier decay fitting.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - N: int
+        Number of genotype sites.
+    - A: int
+        Number of alleles per site.
+    - mutations: np.ndarray
+        Mutation values at which fitness means were measured.
+    - is_squared: bool
+        Whether the decay model is for squared fitness.
+    - fix_b0: bool
+        Whether to fit coefficients relative to the zero-mutation value.
+
+    Returns:
+    - np.ndarray
+        Exponential design matrix.
+    """
     eigrange = range(N + 1) if fix_b0 == False else range(1, N + 1)
     eigenvalues = [A * i for i in eigrange]
     factor = 2 if is_squared is True else 1
@@ -416,19 +568,30 @@ object consumed by downstream generation, processing, or visualisation cells."""
     else:
         return np.array([[np.exp(-mut / (N * (A - 1)) * l * factor) for l in eigenvalues] for mut in mutations])
 
-def get_fourier_coeffs(mean_fitness: np.array, mutations: np.array, N: int, A: int, is_squared: bool=False, fix_b0: bool=False, method: str='nnls', alpha: str=0.1) -> tuple[np.array, np.array]:
-    """
-    Inputs:
-    mean_fitness: vector with mean fitness values
-    mutations: vector with number of mutations, starting with 0
-    N: length of gene
-    A: number of alleles (e.g., 20 if amino acids)
-    is_squared: flag to set true if mean fitness squared is provided instead.
-    method: pick on of ls, ls_constrained, nnls. Results may vary. Latter to enforce positiveness of the coeffs, although positiveness is only true for the squared estimate.
-    Outputs:
-    (fourier_coeffs, exponentials): tuple[np.array, np.array]
-    fourier_coeffs: Vector of length N+1 with Fourier coeffs from low to high frequency, with the first element corresponding to the constant.
-    exponentials: len(mutations)xN+1 matrix to extract fit via exponentials*weights
+def get_fourier_coeffs(mean_fitness: np.ndarray, mutations: np.ndarray, N: int, A: int, is_squared: bool=False, fix_b0: bool=False, method: str='nnls', alpha: float=0.1) -> tuple[np.ndarray, np.ndarray]:
+    """Fit Fourier coefficients from mean-fitness decay measurements.
+
+    Parameters:
+    - mean_fitness: np.ndarray
+        Mean fitness values across mutation distances.
+    - mutations: np.ndarray
+        Mutation values, starting at zero.
+    - N: int
+        Number of genotype sites.
+    - A: int
+        Number of alleles per site.
+    - is_squared: bool
+        Whether mean squared fitness is being fitted.
+    - fix_b0: bool
+        Whether to fit coefficients relative to the zero-mutation value.
+    - method: str
+        Fitting method: ``ls``, ``ls_constrained``, ``nnls``, or ``nnls_reg``.
+    - alpha: float
+        Ridge penalty used by ``nnls_reg``.
+
+    Returns:
+    - tuple[np.ndarray, np.ndarray]
+        Fitted Fourier coefficients and the exponential design matrix.
     """
     exponentials = get_exp_matrix(N=N, A=A, mutations=mutations, is_squared=is_squared, fix_b0=fix_b0)
     if fix_b0:
@@ -456,51 +619,75 @@ def get_fourier_coeffs(mean_fitness: np.array, mutations: np.array, N: int, A: i
         exponentials = get_exp_matrix(N=N, A=A, mutations=mutations, is_squared=is_squared, fix_b0=False)
     return (fourier_coeffs, exponentials)
 
-def get_rho(fourier_coeffs: np.array) -> float:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_rho(fourier_coeffs: np.ndarray) -> float:
+    """Return the normalized dominant non-constant Fourier frequency.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - fourier_coeffs: np.ndarray
+        Fourier coefficients ordered from low to high frequency.
+
+    Returns:
+    - float
+        Dominant frequency index divided by the number of non-constant bands.
+    """
     fourier_coeffs = np.abs(fourier_coeffs)
     return (np.argmax(np.abs(fourier_coeffs[1:])) + 1) / fourier_coeffs[1:].shape[0]
 
-def get_fourier_decay(fourier_coeffs: np.array, A: int, N: int, is_squared: bool=False) -> float:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_fourier_decay(fourier_coeffs: np.ndarray, A: int, N: int, is_squared: bool=False) -> float:
+    """Return the decay rate implied by the dominant Fourier coefficient.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - fourier_coeffs: np.ndarray
+        Fourier coefficients ordered from low to high frequency.
+    - A: int
+        Number of alleles per site.
+    - N: int
+        Number of genotype sites.
+    - is_squared: bool
+        Whether the coefficients describe squared fitness.
+
+    Returns:
+    - float
+        Dominant Fourier decay rate.
+    """
     assert len(fourier_coeffs) == N + 1
     ind_max = np.argmax(np.abs(fourier_coeffs[1:])) + 1
     decay_rate = A * ind_max / (N * (A - 1)) * (2 if is_squared else 1)
     return decay_rate
 
-def get_spectral_entropy(landscape: Any, remove_constant: Any=True, on_gpu: Any=False) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_spectral_entropy(landscape: Array, remove_constant: bool=True, on_gpu: bool=False) -> float:
+    """Compute normalized entropy of the collapsed Fourier spectrum.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - remove_constant: bool
+        Whether to omit the zero-frequency coefficient.
+    - on_gpu: bool
+        Whether to use the JAX FFT path.
+
+    Returns:
+    - float
+        Normalized spectral entropy.
+    """
     spectrum = get_landscape_spectrum(landscape, norm=True, remove_constant=remove_constant, on_gpu=on_gpu)
     p = spectrum / sum(spectrum)
     spectral_entropy = -np.sum(p * np.log(p + 1e-10)) / np.log(len(spectrum))
     return spectral_entropy
 
-def get_dirichlet_metric(landscape: Any, on_gpu: Any=False) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def get_dirichlet_metric(landscape: Array, on_gpu: bool=False) -> float:
+    """Compute the normalized Dirichlet metric from the Fourier spectrum.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - on_gpu: bool
+        Whether to use the JAX FFT path.
+
+    Returns:
+    - float
+        Weighted spectral roughness metric.
+    """
     spectrum = get_landscape_spectrum(landscape, norm=True, remove_constant=True, on_gpu=on_gpu)
     A = landscape.shape[0]
     N = len(landscape.shape)

@@ -1,41 +1,51 @@
 """Processing helpers for the SLIDE paper notebooks."""
 from __future__ import annotations
-from typing import Any
 import numpy as np
 from .direvo_functions import get_single_decay_rate, get_single_decay_rate_IK_v2
 from .ruggedness_functions import find_distance_to_closest_max, get_dirichlet_metric, get_landscape_spectrum, get_mean_paths_to_max, landscape_r2, local_epistasis, max_possible_paths, roughness_to_slope
 from .utils import get_landscape_arrays_dir, load_pickle, load_raw, save_processed
 
 def load_landscapes() -> dict[str, np.ndarray]:
-    """Support the notebook-driven SLIDE analysis pipeline.
+    """Load the empirical landscapes used by the processing notebooks.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Returns:
+    - dict[str, np.ndarray]
+        Mapping from landscape name to fitness array.
+    """
     files = {'GB1': 'GB1_landscape_array.pkl', 'TrpB': 'TrpB_landscape_array.pkl', 'TEV': 'TEV_landscape_array.pkl', 'ParD3': 'E3_landscape_array.pkl'}
     return {name: load_pickle(get_landscape_arrays_dir() / filename) for name, filename in files.items()}
 
 def normalize_decay_array(decay_data: np.ndarray, steps: int=25) -> np.ndarray:
-    """Support the notebook-driven SLIDE analysis pipeline.
+    """Reshape and normalize decay curves by their initial values.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - decay_data: np.ndarray
+        Raw decay data with generation as the last dimension.
+    - steps: int
+        Number of generation steps per trajectory.
+
+    Returns:
+    - np.ndarray
+        Normalized curves with shape ``(blocks, trajectories, steps)``.
+    """
     reshaped = np.asarray(decay_data).reshape(np.asarray(decay_data).shape[0], -1, steps)
     return reshaped / reshaped[:, :, 0][:, :, None]
 
 def estimate_decay_rates(normalized_curves: np.ndarray, *, mut: float=1.0, method: str='default') -> np.ndarray:
-    """Support the notebook-driven SLIDE analysis pipeline.
+    """Fit decay rates for a grid of normalized trajectories.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - normalized_curves: np.ndarray
+        Normalized curves with shape ``(blocks, trajectories, steps)``.
+    - mut: float
+        Mutation scale passed to the fitting model.
+    - method: str
+        Decay fitting method, using ``IK`` for the IK v2 fit.
+
+    Returns:
+    - np.ndarray
+        Fitted decay rates with shape ``normalized_curves.shape[:2]``.
+    """
     out = np.zeros(normalized_curves.shape[:2])
     for i in range(normalized_curves.shape[0]):
         for j in range(normalized_curves.shape[1]):
@@ -45,27 +55,35 @@ object consumed by downstream generation, processing, or visualisation cells."""
                 out[i, j] = get_single_decay_rate(normalized_curves[i, j], mut=mut)[0]
     return out
 
-def process_ruggedness_accuracy(decay_data: np.ndarray, nk_pairs: np.ndarray) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def process_ruggedness_accuracy(decay_data: np.ndarray, nk_pairs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Process NK ruggedness accuracy decay data.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - decay_data: np.ndarray
+        Raw NK decay grid.
+    - nk_pairs: np.ndarray
+        Array of ``(N, K)`` parameter pairs.
+
+    Returns:
+    - tuple[np.ndarray, np.ndarray]
+        True ``(K + 1) / N`` values and fitted decay rates.
+    """
     normalized = normalize_decay_array(decay_data)
     decay_rates = estimate_decay_rates(normalized, mut=0.5)
     k_plus_one_over_ns = np.clip((np.asarray(nk_pairs)[:, 1] + 1) / np.asarray(nk_pairs)[:, 0], 0, 1)
     return (k_plus_one_over_ns, decay_rates)
 
-def process_popsize_accuracy(popsize_data: np.ndarray) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def process_popsize_accuracy(popsize_data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Process population-size sensitivity decay data.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - popsize_data: np.ndarray
+        Raw population-size sweep decay data.
+
+    Returns:
+    - tuple[np.ndarray, np.ndarray]
+        Fitted rates and population sizes.
+    """
     normalized = normalize_decay_array(popsize_data.reshape(25, -1, 25))
     rates = np.zeros((25, normalized.shape[1]))
     for i in range(25):
@@ -73,14 +91,17 @@ object consumed by downstream generation, processing, or visualisation cells."""
             rates[i, j] = get_single_decay_rate(normalized[i, j], mut=1.0)[0]
     return (rates, np.linspace(100, 2500, 25, dtype=int))
 
-def process_mutation_accuracy(mut_data: np.ndarray) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def process_mutation_accuracy(mut_data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Process mutation-rate sensitivity decay data.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - mut_data: np.ndarray
+        Raw mutation-rate sweep decay data.
+
+    Returns:
+    - tuple[np.ndarray, np.ndarray]
+        Fitted rates and mutation-rate values.
+    """
     muts = np.linspace(0.01, 2, 25)
     normalized = normalize_decay_array(mut_data.reshape(25, -1, 25))
     rates = np.zeros((25, normalized.shape[1]))
@@ -89,14 +110,19 @@ object consumed by downstream generation, processing, or visualisation cells."""
             rates[i, j] = get_single_decay_rate(normalized[i, j], mut=mut)[0]
     return (rates, muts)
 
-def empirical_metric_comparison(landscapes: dict[str, np.ndarray], decay_arrays: dict[str, np.ndarray]) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def empirical_metric_comparison(landscapes: dict[str, np.ndarray], decay_arrays: dict[str, np.ndarray]) -> tuple[list[object], ...]:
+    """Compute empirical landscape metrics used for comparison figures.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscapes: dict[str, np.ndarray]
+        Empirical fitness landscapes keyed by name.
+    - decay_arrays: dict[str, np.ndarray]
+        Empirical decay arrays keyed by name.
+
+    Returns:
+    - tuple[list[object], ...]
+        Decay-rate, roughness, linear-model, epistasis, path, and local-maximum measurements.
+    """
     empirical_landscapes = [landscapes[name] for name in ('GB1', 'TrpB', 'TEV', 'ParD3')]
     decay_rate_measurements = []
     for name in ('GB1', 'TrpB', 'TEV', 'ParD3'):
@@ -113,23 +139,33 @@ object consumed by downstream generation, processing, or visualisation cells."""
     return (decay_rate_measurements, roughness_to_slope_measurements, landscape_r2_measurements, local_epistasis_measurements, paths_to_max_measurements, local_max_measurements)
 
 def empirical_fourier_spectra(landscapes: dict[str, np.ndarray]) -> list[np.ndarray]:
-    """Support the notebook-driven SLIDE analysis pipeline.
+    """Compute collapsed Fourier spectra for empirical landscapes.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscapes: dict[str, np.ndarray]
+        Empirical fitness landscapes keyed by name.
+
+    Returns:
+    - list[np.ndarray]
+        Collapsed spectra in GB1, TrpB, TEV, ParD3 order.
+    """
     return [get_landscape_spectrum(landscapes[name], remove_constant=False, on_gpu=True, norm=False) for name in ('GB1', 'TrpB', 'TEV', 'ParD3')]
 
-def heterogeneity_data(nk_heterogeneity: np.ndarray, empirical_decay_arrays: dict[str, np.ndarray], *, method: str='default') -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def heterogeneity_data(nk_heterogeneity: np.ndarray, empirical_decay_arrays: dict[str, np.ndarray], *, method: str='default') -> tuple[list[list[float]], list[list[float]]]:
+    """Fit NK and empirical per-trajectory decay-rate distributions.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - nk_heterogeneity: np.ndarray
+        Raw NK heterogeneity decay data.
+    - empirical_decay_arrays: dict[str, np.ndarray]
+        Empirical decay arrays keyed by name.
+    - method: str
+        Decay fitting method, using ``IK`` for the IK v2 fit.
+
+    Returns:
+    - tuple[list[list[float]], list[list[float]]]
+        NK and empirical fitted decay-rate distributions.
+    """
     nk_heterogeneity = np.asarray(nk_heterogeneity)
     if nk_heterogeneity.ndim > 3:
         nk_heterogeneity = np.array([i.reshape(-1, 25) for i in nk_heterogeneity])
@@ -154,14 +190,23 @@ object consumed by downstream generation, processing, or visualisation cells."""
         empirical_rhos.append(vals)
     return (nk_rhos, empirical_rhos)
 
-def subsampling_accuracy(empirical_decay_arrays: dict[str, np.ndarray], *, method: str='default', n_boot: int=1000, seed: int=0) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def subsampling_accuracy(empirical_decay_arrays: dict[str, np.ndarray], *, method: str='default', n_boot: int=1000, seed: int=0) -> list[list[np.ndarray]]:
+    """Bootstrap empirical decay-rate estimates across trajectory counts.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - empirical_decay_arrays: dict[str, np.ndarray]
+        Empirical decay arrays keyed by name.
+    - method: str
+        Decay fitting method, using ``IK`` for the IK v2 fit.
+    - n_boot: int
+        Number of bootstrap replicates per trajectory count.
+    - seed: int
+        NumPy random seed.
+
+    Returns:
+    - list[list[np.ndarray]]
+        Bootstrap fitted rates by landscape and trajectory count.
+    """
     rng = np.random.default_rng(seed)
     results = []
     eps = 1e-08
@@ -180,14 +225,21 @@ object consumed by downstream generation, processing, or visualisation cells."""
         results.append(traj_results)
     return results
 
-def optimal_de_strategies(strategy_data: np.ndarray, decay_data: np.ndarray, nk_pairs: np.ndarray) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def optimal_de_strategies(strategy_data: np.ndarray, decay_data: np.ndarray, nk_pairs: np.ndarray) -> tuple[np.ndarray, list[int], list[float]]:
+    """Extract optimal directed-evolution strategy parameters from sweep scores.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - strategy_data: np.ndarray
+        Raw strategy sweep scores.
+    - decay_data: np.ndarray
+        Raw decay data for the matching NK grid.
+    - nk_pairs: np.ndarray
+        Array of ``(N, K)`` parameter pairs.
+
+    Returns:
+    - tuple[np.ndarray, list[int], list[float]]
+        Decay rates, optimal split sizes, and optimal base chances.
+    """
     normalized_decay = normalize_decay_array(decay_data)
     reshaped_strategies = np.asarray(strategy_data).reshape(100, -1, 300)
     n_meaned_strategies = reshaped_strategies[:90].mean(axis=2).reshape(9, 10, 49).mean(axis=0)
@@ -201,14 +253,21 @@ object consumed by downstream generation, processing, or visualisation cells."""
     optimal_base_chances = [base_chances[i[1]] for i in optimal_pos]
     return (decay_rates, optimal_splits, optimal_base_chances)
 
-def strategy_prediction_accuracy(actual_k_over_ns: Any, predicted_base_chances: Any, predicted_splittings: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def strategy_prediction_accuracy(actual_k_over_ns: np.ndarray, predicted_base_chances: np.ndarray, predicted_splittings: np.ndarray) -> tuple[np.ndarray, list[float], list[float], list[float], list[float]]:
+    """Summarize predicted strategy parameters by rounded ruggedness.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - actual_k_over_ns: np.ndarray
+        True ruggedness values.
+    - predicted_base_chances: np.ndarray
+        Predicted base-chance values.
+    - predicted_splittings: np.ndarray
+        Predicted split sizes.
+
+    Returns:
+    - tuple[np.ndarray, list[float], list[float], list[float], list[float]]
+        Actual values and grouped means/standard deviations.
+    """
     rounded_actual = np.round(actual_k_over_ns, 1)
     unique_x = np.unique(rounded_actual)
     bc_means, bc_stds, sp_means, sp_stds = ([], [], [], [])
@@ -220,28 +279,36 @@ object consumed by downstream generation, processing, or visualisation cells."""
         sp_stds.append(np.std(np.asarray(predicted_splittings)[mask]))
     return (actual_k_over_ns, bc_means, bc_stds, sp_means, sp_stds)
 
-def smooth_rugged_example(decay_grid: np.ndarray) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def smooth_rugged_example(decay_grid: np.ndarray) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """Extract smooth and rugged baseline example curves from an NK decay grid.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - decay_grid: np.ndarray
+        Raw NK decay grid.
+
+    Returns:
+    - tuple[list[np.ndarray], list[np.ndarray]]
+        Example curves and fitted-line placeholders.
+    """
     normalized = normalize_decay_array(decay_grid)
     smooth = normalized[-1, :10].mean(axis=0)
     rugged = normalized[0, :10].mean(axis=0)
     fitted_lines = [smooth, rugged]
     return ([smooth, rugged], fitted_lines)
 
-def nk_metric_comparison_from_accuracy(k_plus_one_over_ns: np.ndarray, decay_rates: np.ndarray) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def nk_metric_comparison_from_accuracy(k_plus_one_over_ns: np.ndarray, decay_rates: np.ndarray) -> tuple[np.ndarray, ...]:
+    """Create NK metric comparison curves from ruggedness accuracy outputs.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - k_plus_one_over_ns: np.ndarray
+        True ruggedness values.
+    - decay_rates: np.ndarray
+        Fitted decay-rate grid.
+
+    Returns:
+    - tuple[np.ndarray, ...]
+        Comparison metric arrays used by plotting code.
+    """
     x = np.linspace(0, 1, 12)
     convergence = np.interp(x, np.sort(k_plus_one_over_ns), np.sort(decay_rates.mean(axis=1)))
     roughness_to_slope = x
@@ -251,28 +318,38 @@ object consumed by downstream generation, processing, or visualisation cells."""
     local_epistasis_normed = x ** 2
     return (roughness_to_slope, fourier, convergence, paths_to_max, closest_max, x, local_epistasis_normed)
 
-def strategy_prediction_summary(decay_rates: Any, optimal_splits: Any, optimal_base_chances: Any) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def strategy_prediction_summary(decay_rates: np.ndarray, optimal_splits: np.ndarray, optimal_base_chances: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Interpolate optimal strategies onto rounded ruggedness bins.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - decay_rates: np.ndarray
+        Fitted decay rates.
+    - optimal_splits: np.ndarray
+        Optimal split sizes.
+    - optimal_base_chances: np.ndarray
+        Optimal base-chance values.
+
+    Returns:
+    - tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        Actual ruggedness grid and grouped strategy summaries.
+    """
     actual = np.linspace(0, 1, len(decay_rates))
     unique_x = np.unique(np.round(actual, 1))
     bc_means = np.interp(unique_x, actual, np.asarray(optimal_base_chances, dtype=float))
     sp_means = np.interp(unique_x, actual, np.asarray(optimal_splits, dtype=float))
     return (actual, bc_means, np.zeros_like(bc_means), sp_means, np.zeros_like(sp_means))
 
-def nk_de_summary(decay_grid: np.ndarray) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def nk_de_summary(decay_grid: np.ndarray) -> list[np.ndarray]:
+    """Build baseline and SLIDE example curves for NK directed-evolution summaries.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - decay_grid: np.ndarray
+        Raw NK decay grid.
+
+    Returns:
+    - list[np.ndarray]
+        Smooth and rugged baseline and accumulated curves.
+    """
     normalized = normalize_decay_array(decay_grid)
     smooth_baseline = normalized[-1, :20].mean(axis=0)
     rugged_baseline = normalized[0, :20].mean(axis=0)
@@ -280,13 +357,16 @@ object consumed by downstream generation, processing, or visualisation cells."""
     rugged_slide = np.maximum.accumulate(rugged_baseline)
     return [smooth_baseline, rugged_baseline, smooth_slide, rugged_slide]
 
-def fourier_analysis_summary(landscapes: dict[str, np.ndarray]) -> Any:
-    """Support the notebook-driven SLIDE analysis pipeline.
+def fourier_analysis_summary(landscapes: dict[str, np.ndarray]) -> dict[str, object]:
+    """Build the Fourier-analysis summary payload for plotting.
 
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    Parameters:
+    - landscapes: dict[str, np.ndarray]
+        Empirical fitness landscapes keyed by name.
+
+    Returns:
+    - dict[str, object]
+        Summary dictionary containing dimensions and landscape arrays.
+    """
     spectra = empirical_fourier_spectra(landscapes)
     return {'N_used': landscapes['ParD3'].ndim, 'Ks_used': np.arange(1, len(spectra) + 1), 'A_used': landscapes['ParD3'].shape[0], 'nk_builts': [np.asarray(landscapes[name]) for name in ('GB1', 'TrpB', 'TEV', 'ParD3')]}

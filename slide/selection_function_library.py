@@ -1,23 +1,39 @@
-from typing import Any
+from __future__ import annotations
+
+from collections.abc import Mapping
+
 import jax
 import jax.numpy as jnp
-import jax.random as jr
-'\nAll selection functions take as input an array of fitnesses, and output an array of probabilities of selection.\n'
 
-def base_chance_threshold_select(fitnesses: Any, params: Any) -> Any:
-    """
+def base_chance_threshold_select(fitnesses: jax.Array, params: Mapping[str, float]) -> jax.Array:
+    """Return rank-threshold selection probabilities with a baseline chance.
+
     Parameters:
-    - Threshold: The fitness value above which there is a 100% chance of selection.
-    - Base chance: Chance of selection that all cells have irrespective of fitness.
+    - fitnesses: jax.Array
+        Fitness values for one population.
+    - params: Mapping[str, float]
+        Selection parameters containing ``base_chance`` and ``threshold``.
+
+    Returns:
+    - jax.Array
+        Selection probabilities clipped to the interval ``[0, 1]``.
     """
     normed_fitness = jnp.argsort(jnp.argsort(fitnesses)) / (fitnesses.shape[0] - 1)
     return jnp.clip(params['base_chance'] + (normed_fitness >= params['threshold']), 0, 1)
 
-def sigmoid_select(fitnesses: Any, params: Any) -> Any:
-    """
+def sigmoid_select(fitnesses: jax.Array, params: Mapping[str, float]) -> jax.Array:
+    """Return sigmoid rank-based selection probabilities.
+
     Parameters:
-    - Threshold: Midway point of the upwards curve.
-    - Steepness: How steep or shallow the curve is.
+    - fitnesses: jax.Array
+        Fitness values for one population.
+    - params: Mapping[str, float]
+        Selection parameters containing ``base_chance``, ``threshold``, and
+        ``steepness``.
+
+    Returns:
+    - jax.Array
+        Selection probabilities for each population member.
     """
     normed_fitness = jnp.argsort(jnp.argsort(fitnesses)) / (fitnesses.shape[0] - 1)
     return (1 - params['base_chance']) / (1 + jnp.exp(params['steepness'] * (params['threshold'] - normed_fitness))) + params['base_chance']

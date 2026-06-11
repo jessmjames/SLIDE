@@ -10,29 +10,31 @@ from __future__ import annotations
 import os
 import pickle
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from collections.abc import Callable, Iterable
 import numpy as np
 
 def get_repo_root() -> Path:
     """Return the absolute path to the repository root.
 
     Returns:
-        The parent directory of the ``slide`` package. All default data
-        directories are resolved relative to this path.
+    - Path
+        The parent directory of the ``slide`` package. All default data directories are resolved relative to this path.
     """
     return Path(__file__).resolve().parents[1]
 
 def resolve_data_dir(env_var: str, default_name: str, *, create: bool=True) -> Path:
     """Resolve a data directory from an environment override or repo default.
 
-    Args:
-        env_var: Name of an environment variable that may contain an absolute or
-            user-relative path.
-        default_name: Repository-relative directory name to use when
-            ``env_var`` is not set.
-        create: If true, create the directory and parents before returning.
+    Parameters:
+    - env_var: str
+        Name of an environment variable that may contain an absolute or user-relative path.
+    - default_name: str
+        Repository-relative directory name to use when ``env_var`` is not set.
+    - create: bool
+        If true, create the directory and parents before returning.
 
     Returns:
+    - Path
         The resolved absolute directory path.
     """
     raw_value = os.getenv(env_var)
@@ -65,10 +67,12 @@ def get_other_data_dir() -> Path:
 def format_number(value: float | int) -> str:
     """Format numeric values compactly for stable descriptive filenames.
 
-    Args:
-        value: Integer-like or floating-point value to encode.
+    Parameters:
+    - value: float | int
+        Integer-like or floating-point value to encode.
 
     Returns:
+    - str
         A short decimal string without unnecessary trailing zeroes.
     """
     if isinstance(value, (int, np.integer)):
@@ -77,16 +81,19 @@ def format_number(value: float | int) -> str:
     text = f'{value:.6g}'
     return text.rstrip('0').rstrip('.') if '.' in text else text
 
-def parameterized_filename(kind: str, **params: Any) -> str:
+def parameterized_filename(kind: str, **params: object) -> str:
     """Build a descriptive ``.pkl`` filename from run-defining parameters.
 
-    Args:
-        kind: Product family, such as ``nk_decay`` or ``empirical_strategy_GB1``.
-        **params: Ordered parameter names and values to append to the filename.
-            ``None`` values are skipped; lists/ranges are compressed as
-            ``first-last`` when they contain more than two entries.
+    Parameters:
+    - kind: str
+        Product family, such as ``nk_decay`` or ``empirical_strategy_GB1``.
+    - **params: object
+        Ordered parameter names and values to append to the filename. ``None``
+        values are skipped; lists and ranges are compressed as ``first-last``
+        when they contain more than two entries.
 
     Returns:
+    - str
         A filename ending in ``.pkl``.
     """
     parts = [kind]
@@ -103,26 +110,31 @@ def parameterized_filename(kind: str, **params: Any) -> str:
         parts.append(f'{key}{text}')
     return '_'.join(parts) + '.pkl'
 
-def load_pickle(path: str | Path) -> Any:
+def load_pickle(path: str | Path) -> object:
     """Load a pickle object from an explicit path.
 
-    Args:
-        path: File path to read.
+    Parameters:
+    - path: str | Path
+        File path to read.
 
     Returns:
+    - object
         The deserialized Python object.
     """
     with Path(path).open('rb') as handle:
         return pickle.load(handle)
 
-def save_pickle(obj: Any, path: str | Path) -> Path:
+def save_pickle(obj: object, path: str | Path) -> Path:
     """Serialize an object to pickle, creating parent directories if needed.
 
-    Args:
-        obj: Python object to serialize.
-        path: Destination file path.
+    Parameters:
+    - obj: object
+        Python object to serialize.
+    - path: str | Path
+        Destination file path.
 
     Returns:
+    - Path
         The resolved destination path as a ``Path`` object.
     """
     path = Path(path)
@@ -142,57 +154,53 @@ def processed_path(filename: str) -> Path:
 def figure_path(filename: str, fmt: str) -> Path:
     """Return a figure path inside the format-specific figure subdirectory.
 
-    Args:
-        filename: Figure stem or filename.
-        fmt: Output format such as ``pdf``, ``eps``, or ``png``.
+    Parameters:
+    - filename: str
+        Figure stem or filename.
+    - fmt: str
+        Output format such as ``pdf``, ``eps``, or ``png``.
 
     Returns:
+    - Path
         A path under ``figures/<fmt>/`` with the requested extension.
     """
     fmt = fmt.lower().lstrip('.')
     stem = Path(filename).stem
     return get_figures_dir() / fmt / f'{stem}.{fmt}'
 
-def load_raw(filename: str) -> Any:
+def load_raw(filename: str) -> object:
     """Load a raw simulation product by filename from ``raw_data``."""
     return load_pickle(raw_path(filename))
 
-def save_raw(obj: Any, filename: str) -> Path:
+def save_raw(obj: object, filename: str) -> Path:
     """Save a raw simulation product by filename into ``raw_data``."""
     return save_pickle(obj, raw_path(filename))
 
-def load_processed(filename: str) -> Any:
+def load_processed(filename: str) -> object:
     """Load a processed plotting input by filename from ``processed_data``."""
     return load_pickle(processed_path(filename))
 
-def save_processed(obj: Any, filename: str) -> Path:
+def save_processed(obj: object, filename: str) -> Path:
     """Save a processed plotting input by filename into ``processed_data``."""
     return save_pickle(obj, processed_path(filename))
 
-def install_multi_format_savefig(plt: Any, save_type_list: Iterable[str]) -> Callable[..., Any]:
+def install_multi_format_savefig(plt: object, save_type_list: Iterable[str]) -> Callable[..., object]:
     """Patch ``matplotlib.pyplot.savefig`` to write each figure in all formats.
 
-    Args:
-        plt: Imported ``matplotlib.pyplot`` module.
-        save_type_list: Iterable of formats to write, for example
-            ``["pdf", "eps", "png"]``.
+    Parameters:
+    - plt: object
+        Imported ``matplotlib.pyplot`` module.
+    - save_type_list: Iterable[str]
+        Iterable of formats to write, for example ``["pdf", "eps", "png"]``.
 
     Returns:
-        The original ``plt.savefig`` callable so callers can restore it if
-        needed. Calls whose path begins with ``figures`` are redirected to
-        ``figures/<format>/<stem>.<format>`` for every requested format.
+    - Callable[..., object]
+        The original ``plt.savefig`` callable so callers can restore it if needed. Calls whose path begins with ``figures`` are redirected to ``figures/<format>/<stem>.<format>`` for every requested format.
     """
     original_savefig = plt.savefig
     formats = [fmt.lower().lstrip('.') for fmt in save_type_list]
 
-    def savefig(path: str | Path, *args: Any, **kwargs: Any) -> None:
-        """Support the notebook-driven SLIDE analysis pipeline.
-
-This helper is part of the refactored paper code. Its typed signature defines
-which arrays, parameters, or file labels it accepts; callers use it from the
-three notebooks rather than executing standalone scripts. The function has no
-hidden notebook state and returns the explicit array, scalar, path, or summary
-object consumed by downstream generation, processing, or visualisation cells."""
+    def savefig(path: str | Path, *args: object, **kwargs: object) -> None:
         path_obj = Path(path)
         if path_obj.parts and path_obj.parts[0] == 'figures' and path_obj.suffix:
             for fmt in formats:
