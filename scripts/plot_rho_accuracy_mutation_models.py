@@ -44,18 +44,18 @@ for ax, (title, fname) in zip(axes, MODELS):
     mean_decay = grouped_est.mean(axis=1)
     std_decay  = grouped_est.std(axis=1)
 
-    ax.plot(mean_true, mean_decay, 'o-', lw=1.5, label=r'Mean estimated $\rho$')
+    ax.plot(mean_true, mean_decay, 'o-', lw=1.5, label=r'Mean $\rho_2^{\mathrm{fit}}$')
     ax.fill_between(mean_true, mean_decay - std_decay, mean_decay + std_decay,
                     alpha=0.3, edgecolor=None)
-    ax.plot(mean_true, mean_true, c='red', alpha=0.5, ls='--', label=r'$(K+1)/N$')
+    ax.plot(mean_true, mean_true, c='red', alpha=0.5, ls='--', label=r'$\rho_{NK}$')
 
     ax.set_title(title, fontsize=10)
-    ax.set_xlabel(r'$(K+1)/N$', fontsize=9)
+    ax.set_xlabel(r'$\rho_{NK}$', fontsize=9)
     ax.tick_params(labelsize=8)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-axes[0].set_ylabel(r'Estimated $\rho$', fontsize=9)
+axes[0].set_ylabel(r'$\rho_2^{\mathrm{fit}}$', fontsize=9)
 
 handles, labels = axes[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc='lower center', ncol=2,

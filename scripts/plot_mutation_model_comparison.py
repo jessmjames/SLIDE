@@ -96,7 +96,7 @@ def draw_panel(ax, suffix, spec_key, title):
     ax.set_xscale('log')
     ax.set_title(title, fontsize=9)
     ax.set_xlabel('Starting points used', fontsize=8)
-    ax.set_ylabel(r'Estimated $\rho$', fontsize=8)
+    ax.set_ylabel(r'$\rho_2^{\mathrm{fit}}$', fontsize=8)
     ax.tick_params(labelsize=7)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
