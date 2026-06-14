@@ -693,7 +693,7 @@ def missing_raw_outputs() -> dict[str, Path]:
     return {key: path for key, path in expected_raw_outputs().items() if not path.exists()}
 
 
-def nk_grid_pairs(n_range: tuple[int, int] = (10, 50), num_samples: int = 10) -> list[tuple[int, int]]:
+def nk_grid_pairs(n_range: tuple[int, int] = (10, 50), num_samples: int = 10, K_start = 1) -> list[tuple[int, int]]:
     """Construct the NK ``(N, K)`` grid used by Figures 3 and 5.
 
     Parameters:
@@ -710,6 +710,7 @@ def nk_grid_pairs(n_range: tuple[int, int] = (10, 50), num_samples: int = 10) ->
     n_values = np.linspace(n_range[0], n_range[1], num=num_samples).astype(int)
     pairs = []
     for n_sites in n_values:
-        for k in np.linspace(1, n_sites, num_samples).astype(int):
+        k_values = np.linspace(K_start, n_sites + K_start - 1, num_samples).astype(int)
+        for k in k_values:
             pairs.append((int(n_sites), int(k)))
     return list(reversed(pairs))
