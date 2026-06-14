@@ -160,6 +160,45 @@ def repeated_population(start: np.ndarray, popsize: int) -> jnp.ndarray:
     return jnp.tile(start_array[None, :], (int(popsize), 1))
 
 
+def random_start(rng_key: jax.Array, *, n_sites: int, num_alleles: int) -> np.ndarray:
+    """Sample one random NK starting genotype.
+
+    Parameters:
+    - rng_key: jax.Array
+        JAX random key used to sample the genotype.
+    - n_sites: int
+        Number of genotype sites.
+    - num_alleles: int
+        Number of allelic states per site.
+
+    Returns:
+    - np.ndarray
+        Integer coordinate array with shape ``(n_sites,)``.
+    """
+
+    return np.asarray(jr.randint(rng_key, (n_sites,), 0, num_alleles), dtype=np.int32)
+
+
+def _fitness_history(*, fitnesses: jax.Array, pop: jax.Array) -> jax.Array:
+    """Return only per-generation fitness values from diffusion history.
+
+    Parameters:
+    - fitnesses: jax.Array
+        Fitness values recorded for the current population.
+    - pop: jax.Array
+        Current population array supplied by the diffusion loop.
+
+    Returns:
+    - jax.Array
+        Fitness values for the current population.
+    """
+
+    return fitnesses
+
+
+_FITNESS_ONLY_HISTORY: dict[str, Callable[..., jax.Array]] = {"fitness": _fitness_history}
+
+
 def run_empirical_diffusion_replicates(
     rng: jax.Array,
     landscape: np.ndarray,
@@ -323,6 +362,72 @@ def run_nk_diffusion_replicates(
         )
     )
     return vmapped(jr.split(rng, num_reps))
+
+
+def run_nk_start_averaged_diffusion(
+    *,
+    rng_key: jax.Array,
+    n_sites: int,
+    k: int,
+    num_alleles: int,
+    starts: np.ndarray,
+    popsize: int,
+    mutation_rate_per_site: float,
+    num_reps_per_start: int,
+    num_steps: int,
+) -> np.ndarray:
+    """Run start-resolved diffusion on one NK landscape with JAX batching.
+
+    Parameters:
+    - rng_key: jax.Array
+        JAX random key used to build the NK landscape and derive replicate keys.
+    - n_sites: int
+        Number of NK genotype sites.
+    - k: int
+        NK epistatic interaction parameter.
+    - num_alleles: int
+        Number of allelic states per site.
+    - starts: np.ndarray
+        Starting genotype coordinates with shape ``(num_starts, n_sites)``.
+    - popsize: int
+        Number of clonal population members per starting genotype.
+    - mutation_rate_per_site: float
+        Per-site mutation probability.
+    - num_reps_per_start: int
+        Number of independent diffusion replicates for each start.
+    - num_steps: int
+        Number of mutation-only generations.
+
+    Returns:
+    - np.ndarray
+        Start-level mean fitness trajectories with shape ``(num_starts, num_steps)``.
+    """
+
+    starts_array = jnp.asarray(starts, dtype=jnp.int32)
+    num_starts = int(starts_array.shape[0])
+    fitness_function = build_NK_landscape_function(rng_key, n_sites, k)
+    mutation_function = build_mutation_function(mutation_rate_per_site, num_alleles)
+    initial_populations = jnp.repeat(starts_array[:, None, :], int(popsize), axis=1)
+    replicate_keys = jr.split(
+        jr.fold_in(rng_key, 10_000),
+        num_starts * int(num_reps_per_start),
+    ).reshape(num_starts, int(num_reps_per_start), 2)
+
+    def run_one_replicate(initial_population: jax.Array, replicate_key: jax.Array) -> jax.Array:
+        history = run_diffusion(
+            replicate_key,
+            initial_population,
+            mutation_function,
+            fitness_function=fitness_function,
+            num_steps=num_steps,
+            extra_function_dict=_FITNESS_ONLY_HISTORY,
+        )[1]
+        return history["fitness"].mean(axis=-1)
+
+    run_one_start = jax.vmap(run_one_replicate, in_axes=(None, 0))
+    run_all_starts = jax.jit(jax.vmap(run_one_start, in_axes=(0, 0)))
+    replicate_curves = run_all_starts(initial_populations, replicate_keys)
+    return np.asarray(replicate_curves.mean(axis=1), dtype=float)
 
 
 def nk_uniform_start_locs(*, n_sites: int, num_alleles: int, num_starts: int) -> np.ndarray:
@@ -693,7 +798,22 @@ def missing_raw_outputs() -> dict[str, Path]:
     return {key: path for key, path in expected_raw_outputs().items() if not path.exists()}
 
 
-def nk_grid_pairs(n_range: tuple[int, int] = (10, 50), num_samples: int = 10, K_start = 1) -> list[tuple[int, int]]:
+def ordered_unique_pairs(pairs: Sequence[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Deduplicate NK pairs while preserving their first-seen order.
+
+    Parameters:
+    - pairs: Sequence[tuple[int, int]]
+        Ordered NK ``(N, K)`` pairs that may contain duplicates.
+
+    Returns:
+    - list[tuple[int, int]]
+        Integer ``(N, K)`` pairs with duplicates removed.
+    """
+
+    return list(dict.fromkeys((int(n_sites), int(k)) for n_sites, k in pairs))
+
+
+def nk_grid_pairs(n_range: tuple[int, int] = (10, 50), num_samples: int = 10, K_start: int = 1) -> list[tuple[int, int]]:
     """Construct the NK ``(N, K)`` grid used by Figures 3 and 5.
 
     Parameters:
@@ -701,6 +821,8 @@ def nk_grid_pairs(n_range: tuple[int, int] = (10, 50), num_samples: int = 10, K_
         Inclusive range of N values sampled linearly.
     - num_samples: int
         Number of N samples and number of K samples per N.
+    - K_start: int
+        First K value sampled for each N.
 
     Returns:
     - list[tuple[int, int]]
