@@ -121,7 +121,7 @@ def get_lin_landscape(const_term: float | jax.Array | np.ndarray, lin_coeffs: Se
         final_result += jnp.expand_dims(jnp.array(lin_coeffs[i]), axis=axis_shape)
     return final_result + const_term
 
-def roughness_to_slope(landscape_arr: Array) -> jax.Array:
+def roughness_to_slope_old(landscape_arr: Array) -> jax.Array:
     """Compute residual roughness relative to additive slope magnitude.
 
     Parameters:
@@ -139,7 +139,7 @@ def roughness_to_slope(landscape_arr: Array) -> jax.Array:
     roughness = error_land.std()
     return roughness / mean_slope
 
-def landscape_r2(landscape_arr: Array) -> jax.Array:
+def landscape_r2_old(landscape_arr: Array) -> jax.Array:
     """Compute the additive linear model R-squared for a landscape.
 
     Parameters:
@@ -215,7 +215,7 @@ def get_nk_l_o_shape(rng: jax.Array, N: int, K: int, shape: Shape) -> Array:
     """
     return get_array_from_fun(build_NK_landscape_function(rng, N, K), shape)
 
-def local_epistasis(landscape: Array, point: np.ndarray) -> dict[str, int]:
+def local_epistasis_old(landscape: Array, point: np.ndarray) -> dict[str, int]:
     """Count pairwise sign-epistasis classes around one genotype.
 
     Parameters:
@@ -282,6 +282,28 @@ def generate_range_cube(shape: Shape) -> jax.Array:
         base_cube = base_cube.at[tuple([slice(None) if j != i else jnp.arange(1, d_size) for j in range(len(shape))])].add(1)
     return base_cube
 
+def _roll_landscape_to_origin(landscape: Array, starting_point: Array) -> jax.Array:
+    """Roll a landscape so ``starting_point`` is placed at the origin.
+
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - starting_point: Array
+        Coordinate shifted to the origin.
+
+    Returns:
+    - jax.Array
+        Landscape equivalent to ``jnp.roll(landscape, -starting_point)``.
+    """
+    landscape_array = jnp.asarray(landscape)
+    point_array = jnp.asarray(starting_point, dtype=jnp.int32)
+    coordinate_grids = jnp.indices(landscape_array.shape, dtype=jnp.int32)
+    source_indices = tuple(
+        (coordinate_grids[axis] + point_array[axis]) % landscape_array.shape[axis]
+        for axis in range(landscape_array.ndim)
+    )
+    return landscape_array[source_indices]
+
 def find_acc_path_length(landscape: Array, starting_point: Array) -> jax.Array:
     """Count accessible monotonic paths from a starting point.
 
@@ -298,7 +320,7 @@ def find_acc_path_length(landscape: Array, starting_point: Array) -> jax.Array:
     shape = landscape.shape
     N = len(shape)
     range_cube = generate_range_cube(shape)
-    rotated_landsape = jnp.roll(landscape, -starting_point, axis=tuple(range(N)))
+    rotated_landsape = _roll_landscape_to_origin(landscape, starting_point)
     num_paths = jnp.zeros(shape, dtype=jnp.int32)
     num_paths = num_paths.at[tuple([0] * N)].set(1)
     for step in range(N):
@@ -338,7 +360,7 @@ def max_possible_paths(shape: Shape) -> jax.Array:
     N = len(shape)
     return jax.scipy.special.factorial(N) * jnp.prod(jnp.array(shape) - 1)
 
-def get_mean_paths_to_max(landscape: Array, norm: bool=True, extra_slack: int=0) -> jax.Array:
+def get_mean_paths_to_max_old(landscape: Array, norm: bool=True, extra_slack: int=0) -> jax.Array:
     """Compute the mean accessible path count to the global maximum.
 
     Parameters:
@@ -405,8 +427,7 @@ def find_distance_to_set(set_array: Array) -> jax.Array:
     """
     shape = set_array.shape
     N = len(shape)
-    current_distances = jnp.ones(shape) * jnp.inf
-    current_distances = current_distances.at[set_array].set(0)
+    current_distances = jnp.where(set_array, 0.0, jnp.inf)
     for step in range(N):
         for i, d_size in enumerate(shape):
             for shift_a in range(1, d_size):
@@ -414,7 +435,7 @@ def find_distance_to_set(set_array: Array) -> jax.Array:
                 current_distances = jnp.minimum(current_distances, rolled_array + 1)
     return current_distances
 
-def find_distance_to_closest_max(landscape_arrays: Array) -> jax.Array:
+def find_distance_to_closest_max_old(landscape_arrays: Array) -> jax.Array:
     """Compute mean normalized distance to the closest local maximum.
 
     Parameters:
@@ -655,7 +676,7 @@ def get_fourier_decay(fourier_coeffs: np.ndarray, A: int, N: int, is_squared: bo
     decay_rate = A * ind_max / (N * (A - 1)) * (2 if is_squared else 1)
     return decay_rate
 
-def get_spectral_entropy(landscape: Array, remove_constant: bool=True, on_gpu: bool=False) -> float:
+def get_spectral_entropy_old(landscape: Array, remove_constant: bool=True, on_gpu: bool=False) -> float:
     """Compute normalized entropy of the collapsed Fourier spectrum.
 
     Parameters:
@@ -675,7 +696,7 @@ def get_spectral_entropy(landscape: Array, remove_constant: bool=True, on_gpu: b
     spectral_entropy = -np.sum(p * np.log(p + 1e-10)) / np.log(len(spectrum))
     return spectral_entropy
 
-def get_dirichlet_metric(landscape: Array, on_gpu: bool=False) -> float:
+def get_dirichlet_metric_old(landscape: Array, on_gpu: bool=False) -> float:
     """Compute the normalized Dirichlet metric from the Fourier spectrum.
 
     Parameters:
@@ -694,3 +715,272 @@ def get_dirichlet_metric(landscape: Array, on_gpu: bool=False) -> float:
     d = N * (A - 1)
     indices = np.arange(1, N + 1)
     return np.sum(A * indices * spectrum) / np.sum(spectrum) / d
+
+def _jax_lin_coeffs(landscape_arr: Array) -> tuple[jax.Array, list[jax.Array]]:
+    """Estimate additive coefficients using JAX operations.
+
+    Parameters:
+    - landscape_arr: Array
+        N-dimensional fitness landscape.
+
+    Returns:
+    - tuple[jax.Array, list[jax.Array]]
+        Mean fitness and one marginal coefficient vector per landscape axis.
+    """
+    landscape_array = jnp.asarray(landscape_arr)
+    const_term = landscape_array.mean()
+    axes = tuple(range(landscape_array.ndim))
+    lin_coeffs = [
+        (landscape_array - const_term).mean(axis=tuple(axis for axis in axes if axis != coefficient_axis))
+        for coefficient_axis in axes
+    ]
+    return const_term, lin_coeffs
+
+def _jax_lin_landscape(const_term: jax.Array, lin_coeffs: Sequence[Array]) -> jax.Array:
+    """Reconstruct an additive landscape from JAX coefficient arrays.
+
+    Parameters:
+    - const_term: jax.Array
+        Constant fitness offset.
+    - lin_coeffs: Sequence[Array]
+        One marginal coefficient vector per landscape axis.
+
+    Returns:
+    - jax.Array
+        Additive landscape with shape inferred from the coefficients.
+    """
+    coeff_arrays = [jnp.asarray(coefficient) for coefficient in lin_coeffs]
+    final_shape = tuple(int(coefficient.shape[0]) for coefficient in coeff_arrays)
+    final_result = jnp.zeros(final_shape, dtype=jnp.result_type(const_term, *coeff_arrays))
+    axes = tuple(range(len(coeff_arrays)))
+    for coefficient_axis, coefficient in enumerate(coeff_arrays):
+        final_result = final_result + jnp.expand_dims(
+            coefficient,
+            axis=tuple(axis for axis in axes if axis != coefficient_axis),
+        )
+    return final_result + const_term
+
+def roughness_to_slope(landscape_arr: Array) -> jax.Array:
+    """Compute residual roughness relative to additive slope magnitude.
+
+    Parameters:
+    - landscape_arr: Array
+        N-dimensional fitness landscape.
+
+    Returns:
+    - jax.Array
+        Ratio of additive-model residual standard deviation to mean slope.
+    """
+    landscape_array = jnp.asarray(landscape_arr)
+    const_term, lin_coeffs = _jax_lin_coeffs(landscape_array)
+    mean_slope = jnp.abs(jnp.stack(lin_coeffs)).sum(axis=-1).mean()
+    lin_landy = _jax_lin_landscape(const_term, lin_coeffs)
+    error_land = landscape_array - lin_landy
+    roughness = error_land.std()
+    return roughness / mean_slope
+
+def landscape_r2(landscape_arr: Array) -> jax.Array:
+    """Compute the additive linear model R-squared for a landscape.
+
+    Parameters:
+    - landscape_arr: Array
+        N-dimensional fitness landscape.
+
+    Returns:
+    - jax.Array
+        Fraction of landscape variance explained by additive terms.
+    """
+    landscape_array = jnp.asarray(landscape_arr)
+    const_term, lin_coeffs = _jax_lin_coeffs(landscape_array)
+    lin_landy = _jax_lin_landscape(const_term, lin_coeffs)
+    error_land = landscape_array - lin_landy
+    return 1 - error_land.var() / landscape_array.var()
+
+def local_epistasis(landscape: Array, point: np.ndarray) -> dict[str, jax.Array]:
+    """Count pairwise sign-epistasis classes around one genotype.
+
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - point: np.ndarray
+        Genotype coordinate used as the reference point.
+
+    Returns:
+    - dict[str, jax.Array]
+        Counts of simple sign, reciprocal sign, and no-epistasis cases.
+    """
+    landscape_array = jnp.asarray(landscape)
+    point_array = np.asarray(point, dtype=int)
+    shape = landscape_array.shape
+    simple_sign_episasis = jnp.array(0, dtype=jnp.int32)
+    reciprocal_sign_epistasis = jnp.array(0, dtype=jnp.int32)
+    no_epistasis = jnp.array(0, dtype=jnp.int32)
+    base_fitness = landscape_array[tuple(point_array.tolist())]
+
+    for mut_loc_1 in range(landscape_array.ndim):
+        for mut_loc_2 in range(landscape_array.ndim):
+            if mut_loc_1 == mut_loc_2:
+                continue
+            for mut_1 in range(shape[mut_loc_1]):
+                for mut_2 in range(shape[mut_loc_2]):
+                    if mut_1 == point_array[mut_loc_1] or mut_2 == point_array[mut_loc_2]:
+                        continue
+                    point_1 = point_array.copy()
+                    point_1[mut_loc_1] = mut_1
+                    point_2 = point_array.copy()
+                    point_2[mut_loc_2] = mut_2
+                    point_12 = point_1.copy()
+                    point_12[mut_loc_2] = mut_2
+                    fit_1 = landscape_array[tuple(point_1.tolist())]
+                    fit_2 = landscape_array[tuple(point_2.tolist())]
+                    fit_12 = landscape_array[tuple(point_12.tolist())]
+                    delta_1a = fit_1 - base_fitness
+                    delta_1b = fit_12 - fit_2
+                    delta_2a = fit_2 - base_fitness
+                    delta_2b = fit_12 - fit_1
+                    sign_match_1 = delta_1a * delta_1b >= 0
+                    sign_match_2 = delta_2a * delta_2b >= 0
+                    no_epistasis = no_epistasis + jnp.asarray(sign_match_1 & sign_match_2, dtype=jnp.int32)
+                    simple_sign_episasis = simple_sign_episasis + jnp.asarray(sign_match_1 ^ sign_match_2, dtype=jnp.int32)
+                    reciprocal_sign_epistasis = reciprocal_sign_epistasis + jnp.asarray(
+                        (~sign_match_1) & (~sign_match_2),
+                        dtype=jnp.int32,
+                    )
+
+    return {
+        'simple_sign_episasis': simple_sign_episasis,
+        'reciprocal_sign_epistasis': reciprocal_sign_epistasis,
+        'no_epistasis': no_epistasis,
+    }
+
+def get_mean_paths_to_max(landscape: Array, norm: bool=True, extra_slack: int=0) -> jax.Array:
+    """Compute the mean accessible path count to the global maximum.
+
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - norm: bool
+        Whether to normalize by the maximum possible path count.
+    - extra_slack: int
+        Number of terminal distance layers to include instead of only the opposite
+        corner region.
+
+    Returns:
+    - jax.Array
+        Mean accessible path count or normalized mean path count.
+    """
+    landscape_array = jnp.asarray(landscape)
+    max_loc = jnp.asarray(get_argmax_index(landscape_array), dtype=jnp.int32)
+    paths = find_acc_path_length(landscape_array, max_loc)
+    range_cube = generate_range_cube(shape=landscape_array.shape)
+    reversed_range_cube = range_cube.max() - range_cube
+    opposite_side_slice = tuple([slice(1, None) for _ in range(landscape_array.ndim)])
+    if extra_slack > 0:
+        valid_entries = reversed_range_cube <= extra_slack
+        mean_paths = (paths * valid_entries).sum() / valid_entries.sum()
+        return mean_paths
+    if norm:
+        return paths[opposite_side_slice].mean() / max_possible_paths(landscape_array.shape)
+    return paths[opposite_side_slice].mean()
+
+def find_distance_to_closest_max(landscape_arrays: Array) -> jax.Array:
+    """Compute mean normalized distance to the closest local maximum.
+
+    Parameters:
+    - landscape_arrays: Array
+        N-dimensional fitness landscape.
+
+    Returns:
+    - jax.Array
+        Mean distance to local maxima divided by the number of sites.
+    """
+    landscape_array = jnp.asarray(landscape_arrays)
+    return find_distance_to_set(find_local_max(landscape_array)).mean() / landscape_array.ndim
+
+def _collapse_range_jax(array: Array) -> jax.Array:
+    """Sum array values by mutational distance layer using JAX operations.
+
+    Parameters:
+    - array: Array
+        N-dimensional values to collapse by range layer.
+
+    Returns:
+    - jax.Array
+        One value per mutational distance layer.
+    """
+    array_jax = jnp.asarray(array)
+    range_cube = generate_range_cube(array_jax.shape)
+    return jnp.stack([
+        (array_jax * (range_cube == distance_layer)).sum()
+        for distance_layer in range(array_jax.ndim + 1)
+    ])
+
+def _get_landscape_spectrum_jax(
+    landscape: Array,
+    norm: bool=False,
+    remove_constant: bool=True,
+) -> jax.Array:
+    """Collapse landscape Fourier power by mutational distance layer with JAX.
+
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - norm: bool
+        Whether to L2-normalize the collapsed spectrum.
+    - remove_constant: bool
+        Whether to drop the zero-frequency coefficient.
+
+    Returns:
+    - jax.Array
+        Collapsed real-valued spectrum.
+    """
+    landscape_array = jnp.asarray(landscape)
+    landy_fft = fftn_jax(landscape_array)
+    spectrum = landy_fft * jnp.conj(landy_fft)
+    collapsed_spectrum = jnp.real(_collapse_range_jax(spectrum))
+    if remove_constant:
+        collapsed_spectrum = collapsed_spectrum[1:]
+    if norm:
+        collapsed_spectrum = collapsed_spectrum / (collapsed_spectrum * collapsed_spectrum).sum() ** 0.5
+    return collapsed_spectrum
+
+def get_spectral_entropy(landscape: Array, remove_constant: bool=True, on_gpu: bool=False) -> jax.Array:
+    """Compute normalized entropy of the collapsed Fourier spectrum.
+
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - remove_constant: bool
+        Whether to omit the zero-frequency coefficient.
+    - on_gpu: bool
+        Retained for API compatibility; the public implementation uses JAX.
+
+    Returns:
+    - jax.Array
+        Normalized spectral entropy.
+    """
+    spectrum = _get_landscape_spectrum_jax(landscape, norm=True, remove_constant=remove_constant)
+    p = spectrum / spectrum.sum()
+    spectral_entropy = -jnp.sum(p * jnp.log(p + 1e-10)) / jnp.log(len(spectrum))
+    return spectral_entropy
+
+def get_dirichlet_metric(landscape: Array, on_gpu: bool=False) -> jax.Array:
+    """Compute the normalized Dirichlet metric from the Fourier spectrum.
+
+    Parameters:
+    - landscape: Array
+        N-dimensional fitness landscape.
+    - on_gpu: bool
+        Retained for API compatibility; the public implementation uses JAX.
+
+    Returns:
+    - jax.Array
+        Weighted spectral roughness metric.
+    """
+    landscape_array = jnp.asarray(landscape)
+    spectrum = _get_landscape_spectrum_jax(landscape_array, norm=True, remove_constant=True)
+    num_alleles = landscape_array.shape[0]
+    num_sites = landscape_array.ndim
+    max_distance = num_sites * (num_alleles - 1)
+    indices = jnp.arange(1, num_sites + 1)
+    return jnp.sum(num_alleles * indices * spectrum) / spectrum.sum() / max_distance

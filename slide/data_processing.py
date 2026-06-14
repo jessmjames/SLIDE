@@ -345,28 +345,6 @@ def smooth_rugged_example(decay_grid: np.ndarray) -> tuple[list[np.ndarray], lis
     fitted_lines = [smooth, rugged]
     return ([smooth, rugged], fitted_lines)
 
-def nk_metric_comparison_from_accuracy(k_plus_one_over_ns: np.ndarray, decay_rates: np.ndarray) -> tuple[np.ndarray, ...]:
-    """Create NK metric comparison curves from ruggedness accuracy outputs.
-
-    Parameters:
-    - k_plus_one_over_ns: np.ndarray
-        True ruggedness values.
-    - decay_rates: np.ndarray
-        Fitted decay-rate grid.
-
-    Returns:
-    - tuple[np.ndarray, ...]
-        Comparison metric arrays used by plotting code.
-    """
-    x = np.linspace(0, 1, 12)
-    convergence = np.interp(x, np.sort(k_plus_one_over_ns), np.sort(decay_rates.mean(axis=1)))
-    roughness_to_slope = x
-    fourier = 1 - x
-    paths_to_max = 1 - 0.5 * x
-    closest_max = x ** 0.5
-    local_epistasis_normed = x ** 2
-    return (roughness_to_slope, fourier, convergence, paths_to_max, closest_max, x, local_epistasis_normed)
-
 def strategy_prediction_summary(decay_rates: np.ndarray, optimal_splits: np.ndarray, optimal_base_chances: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Interpolate optimal strategies onto rounded ruggedness bins.
 
