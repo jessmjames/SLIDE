@@ -367,6 +367,7 @@ def run_nk_diffusion_replicates(
 def run_nk_start_averaged_diffusion(
     *,
     rng_key: jax.Array,
+    trajectory_rng_key: jax.Array | None = None,
     n_sites: int,
     k: int,
     num_alleles: int,
@@ -380,7 +381,9 @@ def run_nk_start_averaged_diffusion(
 
     Parameters:
     - rng_key: jax.Array
-        JAX random key used to build the NK landscape and derive replicate keys.
+        JAX random key used to build the NK landscape.
+    - trajectory_rng_key: jax.Array | None
+        Optional JAX random key used to derive replicate trajectory keys. If ``None``, ``rng_key`` is used.
     - n_sites: int
         Number of NK genotype sites.
     - k: int
@@ -408,8 +411,10 @@ def run_nk_start_averaged_diffusion(
     fitness_function = build_NK_landscape_function(rng_key, n_sites, k)
     mutation_function = build_mutation_function(mutation_rate_per_site, num_alleles)
     initial_populations = jnp.repeat(starts_array[:, None, :], int(popsize), axis=1)
+    if trajectory_rng_key is None:
+        trajectory_rng_key = rng_key
     replicate_keys = jr.split(
-        jr.fold_in(rng_key, 10_000),
+        jr.fold_in(trajectory_rng_key, 10_000),
         num_starts * int(num_reps_per_start),
     ).reshape(num_starts, int(num_reps_per_start), 2)
 
