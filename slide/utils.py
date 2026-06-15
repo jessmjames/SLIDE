@@ -13,6 +13,27 @@ from pathlib import Path
 from collections.abc import Callable, Iterable
 import numpy as np
 
+FIGURE_LABEL_SIZE = 7
+FIGURE_TITLE_SIZE = 9
+FIGURE_LEGEND_SIZE = 6
+FIGURE_TICK_SIZE = 6
+PANEL_LETTER_SIZE = 12
+
+FIGURE_BOX_STYLE = {
+    "boxstyle": "round,pad=0.2",
+    "facecolor": "white",
+    "edgecolor": "0.8",
+    "alpha": 0.85,
+}
+
+FIGURE_COLORS = {
+    "decay_smooth": "#4c78a8",
+    "decay_rugged": "#f58518",
+    "fmu_all": "#7b3294",
+    "fmu_high": "#008837",
+    "reference": "#d62728",
+}
+
 def get_repo_root() -> Path:
     """Return the absolute path to the repository root.
 
