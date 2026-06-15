@@ -928,6 +928,114 @@ def best_variant_traces_empirical(
     return jax.vmap(one_replicate)(rep_keys)
 
 
+@partial(jax.jit, static_argnames=("n_sites", "num_alleles", "k", "popsize", "split_size", "num_reps", "mutation_rate", "num_steps"))
+def _nk_landscape_batch_scores(
+    landscape_keys: jax.Array,
+    base_chances: jax.Array,
+    thresholds: jax.Array,
+    *,
+    n_sites: int,
+    num_alleles: int,
+    k: int,
+    popsize: int,
+    split_size: int,
+    num_reps: int,
+    mutation_rate: float,
+    num_steps: int,
+) -> jax.Array:
+    """Max-final-fitness per (landscape, replicate, base-chance) for one (N,K) and split size.
+
+    Vmaps over a batch of NK landscapes (each seeded by its key, which also seeds its
+    replicates and random starts), so a whole (N,K) lookup point is one fused kernel.
+
+    Returns:
+    - jax.Array
+        Shape ``(num_landscapes, num_reps, grid)``.
+    """
+    sub_pop = int(popsize / split_size)
+    mutation_function = build_mutation_function(mutation_rate, num_alleles)
+
+    def one_landscape(land_key: jax.Array) -> jax.Array:
+        interaction_matrix, site_rng, offset_rng = nk_landscape_arrays(land_key, n_sites, k)
+
+        def fitness_function(population: jax.Array) -> jax.Array:
+            return nk_population_fitness(population, interaction_matrix, site_rng, offset_rng)
+
+        def run_one(rng: jax.Array, base_chance: jax.Array, threshold: jax.Array) -> jax.Array:
+            selection_function = build_selection_function(slct.base_chance_threshold_select, {"threshold": threshold, "base_chance": base_chance})
+            initial_population = jnp.tile(jr.randint(rng, (1, n_sites), 0, num_alleles), (sub_pop, 1))
+            return _max_final_fitness(rng, initial_population, selection_function, mutation_function, fitness_function, split_size=split_size, num_steps=num_steps)
+
+        over_strategies = jax.vmap(run_one, in_axes=(None, 0, 0))
+        over_replicates = jax.vmap(over_strategies, in_axes=(0, None, None))
+        return over_replicates(jr.split(land_key, num_reps), base_chances, thresholds)
+
+    return jax.vmap(one_landscape)(landscape_keys)
+
+
+def generate_nk_strategy_space_point(
+    rng: jax.Array,
+    *,
+    n_sites: int,
+    num_alleles: int,
+    k: int,
+    popsize: int,
+    num_reps: int,
+    num_landscapes: int,
+    strategy_grid_size: int,
+    mutation_rate: float,
+    num_steps: int,
+    batch_size: int = 0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Landscape-averaged NK strategy space for one (N,K) lookup point (Figure 5A).
+
+    Vmaps over landscapes (chunked by ``batch_size``) instead of looping them in Python, so the
+    Figure 5A grid is fast. Output axes are ``(split, base, reps)`` for the ``split_base_reps``
+    layout (a transpose, not a reshape).
+
+    Parameters:
+    - rng: jax.Array
+        Key for this (N,K) point; split into the landscape keys.
+    - mutation_rate: float
+        Total mutation rate, divided by ``n_sites`` internally.
+    - batch_size: int
+        Landscapes per fused vmap call; ``<= 0`` runs them all at once.
+
+    Returns:
+    - tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        ``(split, base, reps)`` strategy space, plus ``thresholds``, ``base_chances``, ``splits``.
+    """
+    thresholds, base_chances, splits = strategy_grid(strategy_grid_size)
+    base_chances_j = jnp.asarray(base_chances)
+    thresholds_j = jnp.asarray(thresholds)
+    per_site_mutation = mutation_rate / n_sites
+    landscape_keys = np.asarray(jr.split(rng, num_landscapes))
+    num_chunks = 1 if batch_size <= 0 or batch_size >= num_landscapes else int(np.ceil(num_landscapes / batch_size))
+
+    split_results = []
+    for split_size in splits:
+        scores_sum = None
+        for key_chunk in np.array_split(landscape_keys, num_chunks):
+            scores = np.asarray(_nk_landscape_batch_scores(
+                jnp.asarray(key_chunk),
+                base_chances_j,
+                thresholds_j,
+                n_sites=n_sites,
+                num_alleles=num_alleles,
+                k=int(k),
+                popsize=popsize,
+                split_size=int(split_size),
+                num_reps=num_reps,
+                mutation_rate=per_site_mutation,
+                num_steps=num_steps,
+            )).sum(axis=0)  # (num_reps, grid), summed over the landscape chunk
+            scores_sum = scores if scores_sum is None else scores_sum + scores
+        split_results.append(scores_sum / num_landscapes)  # landscape-averaged (num_reps, grid)
+
+    space = np.asarray(split_results).transpose(0, 2, 1)  # (num_splits, num_reps, base) -> (split, base, reps)
+    return space, np.asarray(thresholds), np.asarray(base_chances), np.asarray(splits)
+
+
 def generate_nk_strategy_sweep(
     *,
     n_sites: int,

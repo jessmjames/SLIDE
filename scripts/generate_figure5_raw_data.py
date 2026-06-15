@@ -31,12 +31,15 @@ if str(_REPO_ROOT) not in sys.path:
 import numpy as np
 from tqdm.auto import tqdm
 
+import jax.random as jr
+
 from slide.data_generation import (
     EMPIRICAL_NAMES,
     RAW_FILENAMES,
     generate_empirical_decay_curves,
     generate_empirical_strategy_trajectory_sweep,
     generate_nk_decay_curves,
+    generate_nk_strategy_space_point,
     generate_nk_strategy_sweep,
     load_empirical_landscape,
     nk_grid_pairs,
@@ -62,8 +65,9 @@ DE_POPSIZE = 1200
 DE_STARTS = int(os.environ.get("DE_STARTS", "100"))
 DE_REPS = int(os.environ.get("DE_REPS", "300"))
 DE_BATCH = int(os.environ.get("DE_BATCH", "0"))  # replicates per fused vmap; 0 = all at once
-# 5A lookup: NK landscapes averaged per (N,K) point. 1 => noisy argmax / no trend; 50 => smooth.
-NK_GRID_LANDSCAPES = int(os.environ.get("NK_GRID_LANDSCAPES", "50"))
+# 5A lookup: NK landscapes averaged per (N,K) point (now vmapped, so this can be large).
+NK_GRID_LANDSCAPES = int(os.environ.get("NK_GRID_LANDSCAPES", "200"))
+NK_GRID_BATCH = int(os.environ.get("NK_GRID_BATCH", "25"))  # landscapes per fused vmap; caps memory
 SEED = 42
 
 
@@ -84,15 +88,16 @@ def generate_nk_strategy_grid() -> None:
 
     num_landscapes_per_pair = NK_GRID_LANDSCAPES
     grid = []
-    for n_sites, k in tqdm(nk_pairs, desc="NK strategy grid (5A)"):
-        pair = generate_nk_strategy_sweep(
-            n_sites=n_sites, num_alleles=num_alleles, k_values=[k], mutation_rate=mutation_rate,
-            popsize=popsize, num_landscapes=num_landscapes_per_pair, num_reps=num_reps, num_steps=num_steps,
-            strategy_grid_size=strategy_grid_size, outer_reps=1, seed=SEED,
+    for index, (n_sites, k) in enumerate(tqdm(nk_pairs, desc="NK strategy grid (5A)")):
+        # Landscape-averaged strategy space per (N,K), vmapped over landscapes (correct (split, base, reps) axes).
+        space, thresholds, base_chances, splits = generate_nk_strategy_space_point(
+            jr.PRNGKey(SEED + index),
+            n_sites=n_sites, num_alleles=num_alleles, k=k, popsize=popsize,
+            num_reps=num_reps, num_landscapes=num_landscapes_per_pair,
+            strategy_grid_size=strategy_grid_size, mutation_rate=mutation_rate,
+            num_steps=num_steps, batch_size=NK_GRID_BATCH,
         )
-        # generate_nk_strategy_sweep returns (outer=1, k=1, reps, base, split); transpose to
-        # (split, base, reps) for the "split_base_reps" layout. (reshape here would scramble axes.)
-        grid.append(np.asarray(pair)[0, 0].transpose(2, 1, 0))
+        grid.append(space)
 
     save_raw(
         {
