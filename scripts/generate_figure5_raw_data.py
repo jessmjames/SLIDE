@@ -62,6 +62,8 @@ DE_POPSIZE = 1200
 DE_STARTS = int(os.environ.get("DE_STARTS", "100"))
 DE_REPS = int(os.environ.get("DE_REPS", "300"))
 DE_BATCH = int(os.environ.get("DE_BATCH", "0"))  # replicates per fused vmap; 0 = all at once
+# 5A lookup: NK landscapes averaged per (N,K) point. 1 => noisy argmax / no trend; 50 => smooth.
+NK_GRID_LANDSCAPES = int(os.environ.get("NK_GRID_LANDSCAPES", "50"))
 SEED = 42
 
 
@@ -80,14 +82,17 @@ def generate_nk_strategy_grid() -> None:
     strategy_grid_size = 7
     thresholds, base_chances, splits = strategy_grid(strategy_grid_size)
 
+    num_landscapes_per_pair = NK_GRID_LANDSCAPES
     grid = []
     for n_sites, k in tqdm(nk_pairs, desc="NK strategy grid (5A)"):
         pair = generate_nk_strategy_sweep(
             n_sites=n_sites, num_alleles=num_alleles, k_values=[k], mutation_rate=mutation_rate,
-            popsize=popsize, num_landscapes=1, num_reps=num_reps, num_steps=num_steps,
+            popsize=popsize, num_landscapes=num_landscapes_per_pair, num_reps=num_reps, num_steps=num_steps,
             strategy_grid_size=strategy_grid_size, outer_reps=1, seed=SEED,
         )
-        grid.append(pair.reshape(strategy_grid_size, strategy_grid_size, num_reps))
+        # generate_nk_strategy_sweep returns (outer=1, k=1, reps, base, split); transpose to
+        # (split, base, reps) for the "split_base_reps" layout. (reshape here would scramble axes.)
+        grid.append(np.asarray(pair)[0, 0].transpose(2, 1, 0))
 
     save_raw(
         {
@@ -95,7 +100,7 @@ def generate_nk_strategy_grid() -> None:
             "params": {
                 "N_range": n_range, "num_grid_samples": num_grid_samples, "nk_pairs": nk_pairs,
                 "A": num_alleles, "mutation_rate": mutation_rate, "popsize": popsize,
-                "num_landscapes_per_pair": 1, "num_reps": num_reps, "M": num_steps,
+                "num_landscapes_per_pair": num_landscapes_per_pair, "num_reps": num_reps, "M": num_steps,
                 "strategy_grid_size": strategy_grid_size, "outer_reps": 1,
                 "thresholds": np.asarray(thresholds), "base_chances": np.asarray(base_chances),
                 "splits": splits, "seed": SEED,
