@@ -60,7 +60,8 @@ DE_GENERATIONS = 150
 HEATMAP_GEN = 25
 DE_POPSIZE = 1200
 DE_STARTS = int(os.environ.get("DE_STARTS", "100"))
-DE_REPS = int(os.environ.get("DE_REPS", "10"))
+DE_REPS = int(os.environ.get("DE_REPS", "300"))
+DE_BATCH = int(os.environ.get("DE_BATCH", "0"))  # replicates per fused vmap; 0 = all at once
 SEED = 42
 
 
@@ -180,18 +181,23 @@ def generate_empirical_trajectory_sweeps() -> None:
 
     landscapes = {name: load_empirical_landscape(name) for name in EMPIRICAL_NAMES}
     for name, landscape in tqdm(landscapes.items(), desc="empirical trajectory sweep (D-G)"):
+        if _exists(f"empirical_strategy_traj_{name}"):
+            continue  # per-landscape skip so we only regenerate what's missing
         grid_size = 5 if landscape.ndim == 3 else 7
+        # ParD3 is the small 3-site landscape: keep its original popsize 60 (matches the published
+        # sweep, where high-split strategies starve and Baseline wins); 1200 for the 4-site landscapes.
+        popsize = 60 if landscape.ndim == 3 else DE_POPSIZE
         per_site_mutation = 0.1 / landscape.ndim  # calibration mutation rate (0.1/N), matches the look-up sweep
         starts = uniform_start_locs(landscape, num_starts=DE_STARTS, seed=SEED)
         trajectories, thresholds, base_chances, splits = generate_empirical_strategy_trajectory_sweep(
-            landscape, starts, mutation_rate=per_site_mutation, popsize=DE_POPSIZE, num_reps=DE_REPS,
-            num_steps=DE_GENERATIONS, strategy_grid_size=grid_size, seed=SEED,
+            landscape, starts, mutation_rate=per_site_mutation, popsize=popsize, num_reps=DE_REPS,
+            num_steps=DE_GENERATIONS, strategy_grid_size=grid_size, seed=SEED, batch_size=DE_BATCH,
         )
         save_raw(
             {
                 "data": trajectories,
                 "params": {
-                    "name": name, "mutation_rate": per_site_mutation, "popsize": DE_POPSIZE,
+                    "name": name, "mutation_rate": per_site_mutation, "popsize": popsize,
                     "num_starts": DE_STARTS, "num_reps": DE_REPS, "M": DE_GENERATIONS,
                     "heatmap_gen": HEATMAP_GEN, "strategy_grid_size": grid_size, "thresholds": thresholds,
                     "base_chances": base_chances, "splits": splits, "seed": SEED,

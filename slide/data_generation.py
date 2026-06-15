@@ -1078,12 +1078,17 @@ def generate_empirical_strategy_trajectory_sweep(
     num_steps: int,
     strategy_grid_size: int,
     seed: int = 42,
+    batch_size: int = 0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Run an empirical strategy sweep that keeps the best-variant trajectory of every cell.
 
     The heat map (final-fitness per strategy) and the directed-evolution lines (selected
     strategies) are both derived from this one array, guaranteeing they are different views of
     the same simulation.
+
+    ``batch_size`` chunks the fused replicate vmap (the ``reps x grid`` device batch): ``<= 0``
+    runs all replicates in one vmap (fastest, most memory); set a smaller value to cap the
+    device batch when pushing the replicate count high. The result is identical either way.
 
     Parameters:
     - landscape: np.ndarray
@@ -1117,26 +1122,33 @@ def generate_empirical_strategy_trajectory_sweep(
     num_alleles = landscape_j.shape[0]
     master_keys = jr.split(jr.PRNGKey(seed), len(starts))
 
+    num_chunks = 1 if batch_size <= 0 or batch_size >= num_reps else int(np.ceil(num_reps / batch_size))
     all_start_results = []
     for start, start_key in zip(starts, master_keys):
         start_j = jnp.asarray(start)
-        rep_keys = jr.split(start_key, num_reps)
+        rep_keys = np.asarray(jr.split(start_key, num_reps))
         split_results = []
         for split_size in splits:
-            cell = _empirical_cell_trajectories(
-                rep_keys,
-                base_chances_j,
-                thresholds_j,
-                start_j,
-                landscape_j,
-                n_sites=n_sites,
-                num_alleles=num_alleles,
-                popsize=popsize,
-                split_size=int(split_size),
-                mutation_rate=mutation_rate,
-                num_steps=num_steps,
-            )
-            split_results.append(np.asarray(cell).mean(axis=0))
+            # Sum best-variant trajectories over replicate chunks, then divide by num_reps to get
+            # the mean. Chunking caps the fused vmap (reps x grid) for device memory; the result
+            # is identical to running all replicates at once.
+            rep_sum = None
+            for rep_chunk in np.array_split(rep_keys, num_chunks):
+                cell = np.asarray(_empirical_cell_trajectories(
+                    jnp.asarray(rep_chunk),
+                    base_chances_j,
+                    thresholds_j,
+                    start_j,
+                    landscape_j,
+                    n_sites=n_sites,
+                    num_alleles=num_alleles,
+                    popsize=popsize,
+                    split_size=int(split_size),
+                    mutation_rate=mutation_rate,
+                    num_steps=num_steps,
+                )).sum(axis=0)
+                rep_sum = cell if rep_sum is None else rep_sum + cell
+            split_results.append(rep_sum / num_reps)
         all_start_results.append(np.asarray(split_results))
     return np.asarray(all_start_results), np.asarray(thresholds), np.asarray(base_chances), np.asarray(splits)
 
