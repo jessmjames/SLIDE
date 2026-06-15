@@ -71,8 +71,19 @@ NK_GRID_BATCH = int(os.environ.get("NK_GRID_BATCH", "25"))  # landscapes per fus
 SEED = 42
 
 
-def generate_nk_strategy_grid() -> None:
-    """Generate the Figure 5A NK directed-evolution strategy lookup grid (final-fitness)."""
+def generate_nk_strategy_grid(*, num_steps: int = 25, num_landscapes: int | None = None, output_key: str = "nk_strategy_grid", paper_reference: str = "Figure 5A") -> None:
+    """Generate an NK directed-evolution strategy look-up grid at one DE horizon.
+
+    M=25 is Figure 5A; M=50 and M=100 are the higher-iteration look-ups for Figure S5.
+
+    Parameters:
+    - num_steps: int
+        DE generations (the look-up horizon).
+    - num_landscapes: int | None
+        Landscapes averaged per (N,K) point; defaults to NK_GRID_LANDSCAPES.
+    - output_key, paper_reference: str
+        Raw-product registry key and figure label.
+    """
 
     n_range = (10, 50)
     num_grid_samples = 10
@@ -82,13 +93,11 @@ def generate_nk_strategy_grid() -> None:
     mutation_rate = 0.1
     popsize = 1200
     num_reps = 25
-    num_steps = 25
     strategy_grid_size = 7
-    thresholds, base_chances, splits = strategy_grid(strategy_grid_size)
+    num_landscapes_per_pair = NK_GRID_LANDSCAPES if num_landscapes is None else num_landscapes
 
-    num_landscapes_per_pair = NK_GRID_LANDSCAPES
     grid = []
-    for index, (n_sites, k) in enumerate(tqdm(nk_pairs, desc="NK strategy grid (5A)")):
+    for index, (n_sites, k) in enumerate(tqdm(nk_pairs, desc=f"NK strategy grid M={num_steps}")):
         # Landscape-averaged strategy space per (N,K), vmapped over landscapes (correct (split, base, reps) axes).
         space, thresholds, base_chances, splits = generate_nk_strategy_space_point(
             jr.PRNGKey(SEED + index),
@@ -110,9 +119,9 @@ def generate_nk_strategy_grid() -> None:
                 "thresholds": np.asarray(thresholds), "base_chances": np.asarray(base_chances),
                 "splits": splits, "seed": SEED,
             },
-            "metadata": {"description": "NK directed-evolution strategy lookup grid.", "paper_reference": "Figure 5A", "output_key": "nk_strategy_grid", "filename": RAW_FILENAMES["nk_strategy_grid"]},
+            "metadata": {"description": f"NK directed-evolution strategy lookup grid (M={num_steps}).", "paper_reference": paper_reference, "output_key": output_key, "filename": RAW_FILENAMES[output_key]},
         },
-        RAW_FILENAMES["nk_strategy_grid"],
+        RAW_FILENAMES[output_key],
     )
 
 
@@ -226,6 +235,11 @@ def main() -> None:
     # Idempotent: skip products that already exist so re-runs only generate what's missing.
     if not _exists("nk_strategy_grid"):
         generate_nk_strategy_grid()
+    # Figure S5: same NK look-up at higher DE iterations. 50 landscapes is plenty for the
+    # binned strategy trend (5A uses 200 for the main panel); M=100 at 200 would run hours.
+    for m in (50, 100):
+        if not _exists(f"nk_strategy_grid_M{m}"):
+            generate_nk_strategy_grid(num_steps=m, num_landscapes=50, output_key=f"nk_strategy_grid_M{m}", paper_reference="Figure S5")
     if not (_exists("nk_decay_N4_A20") and _exists("nk_strategy_N4_A20")):
         generate_nk_lookup(n_sites=4, k_values=[1, 2, 3], strategy_grid_size=7, decay_key="nk_decay_N4_A20", strategy_key="nk_strategy_N4_A20")
     if not (_exists("nk_decay_N3_A20") and _exists("nk_strategy_N3_A20")):

@@ -928,7 +928,7 @@ def best_variant_traces_empirical(
     return jax.vmap(one_replicate)(rep_keys)
 
 
-@partial(jax.jit, static_argnames=("n_sites", "num_alleles", "k", "popsize", "split_size", "num_reps", "mutation_rate", "num_steps"))
+@partial(jax.jit, static_argnames=("n_sites", "num_alleles", "popsize", "split_size", "num_reps", "num_steps"))
 def _nk_landscape_batch_scores(
     landscape_keys: jax.Array,
     base_chances: jax.Array,
@@ -936,11 +936,11 @@ def _nk_landscape_batch_scores(
     *,
     n_sites: int,
     num_alleles: int,
-    k: int,
+    k: jax.Array,
     popsize: int,
     split_size: int,
     num_reps: int,
-    mutation_rate: float,
+    mutation_rate: jax.Array,
     num_steps: int,
 ) -> jax.Array:
     """Max-final-fitness per (landscape, replicate, base-chance) for one (N,K) and split size.
@@ -1009,6 +1009,10 @@ def generate_nk_strategy_space_point(
     base_chances_j = jnp.asarray(base_chances)
     thresholds_j = jnp.asarray(thresholds)
     per_site_mutation = mutation_rate / n_sites
+    # Pass k and mutation_rate as traced arrays (not static) so the kernel compiles
+    # once per distinct N rather than once per (N, K, mutation) combination.
+    k_j = jnp.asarray(int(k), dtype=jnp.int32)
+    per_site_mutation_j = jnp.asarray(per_site_mutation, dtype=jnp.float32)
     landscape_keys = np.asarray(jr.split(rng, num_landscapes))
     num_chunks = 1 if batch_size <= 0 or batch_size >= num_landscapes else int(np.ceil(num_landscapes / batch_size))
 
@@ -1022,11 +1026,11 @@ def generate_nk_strategy_space_point(
                 thresholds_j,
                 n_sites=n_sites,
                 num_alleles=num_alleles,
-                k=int(k),
+                k=k_j,
                 popsize=popsize,
                 split_size=int(split_size),
                 num_reps=num_reps,
-                mutation_rate=per_site_mutation,
+                mutation_rate=per_site_mutation_j,
                 num_steps=num_steps,
             )).sum(axis=0)  # (num_reps, grid), summed over the landscape chunk
             scores_sum = scores if scores_sum is None else scores_sum + scores
@@ -1349,6 +1353,10 @@ RAW_FILENAMES: dict[str, str] = {
     "nk_decay_N3_A20": "nk_decay_N3_A20_raw_data.pkl",
     "nk_strategy_N3_A20": "nk_strategy_N3_A20_raw_data.pkl",
 }
+
+# Figure S5: the same NK strategy look-up grid as 5A but at higher DE iteration counts (M).
+for _m in (50, 100):
+    RAW_FILENAMES[f"nk_strategy_grid_M{_m}"] = f"nk_strategy_grid_M{_m}_raw_data.pkl"
 
 for _steps in GENERATION_STEPS:
     RAW_FILENAMES[f"nk_strategy_N4_A20_steps{_steps}"] = f"nk_strategy_N4_A20_steps{_steps}_raw_data.pkl"
