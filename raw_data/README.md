@@ -26,9 +26,19 @@ the function inside it — a navigation pointer, **not** a standalone command (e
 `main()` with extra args). The actual reproduction recipe is the single command at the top of this
 file; it regenerates everything idempotently and the exact parameters live inside each pkl's `params`.
 
-**For byte-identical reproduction** you also need: the fixed **seed = 42** (set in the script;
-also stored in each pkl), and the **same jax/jaxlib version (0.7.2)** — JAX RNG streams and XLA
-lowering can differ across versions, so a different jax can give numerically different pkls.
+### Random seed
+
+All randomness is seeded from a single fixed constant **`SEED = 42`** (top of
+`generate_figure5_raw_data.py`), and every pkl records the seed it used in its `params` dict:
+
+- NK strategy grid: each (N,K) point *i* is seeded `jax.random.PRNGKey(SEED + i)` — so point 0 uses
+  42, point 1 uses 43, … (deterministic per point).
+- All other generators (`generate_nk_lookup`, `generate_empirical_decay`,
+  `generate_empirical_trajectory_sweeps`) pass `seed=SEED` (42) directly.
+
+**For byte-identical reproduction** you need this seed (already fixed) **and the same jax/jaxlib
+version (0.7.2)** — JAX RNG streams and XLA lowering can differ across versions, so a different jax
+can produce numerically different pkls even with the same seed.
 
 | File | Figure | Generator fn | Key params | Gen time |
 |------|--------|--------------|------------|----------|
