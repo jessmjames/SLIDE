@@ -46,16 +46,20 @@ MAX_STARTS      = [160_000, 160_000, 160_000, 8_000]
 
 # GB1=orange, TrpB=blue, TEV=green, ParD3=red  (consistent with decay curves plot)
 colours = [matplotlib.colormaps['tab10'](i) for i in [1, 0, 2, 3]]
+# Per-landscape markers (distinct shapes, as on Fig 4)
+MARKERS = ['o', 's', '^', 'D']  # GB1, TrpB, TEV, ParD3
 
-# Nuc models (main figure)
+# Nuc models (main figure). 4th field = the true-rho symbol for this mutation operator:
+#   uniform (undirected, unweighted) -> rho_2; symmetric (undirected, weighted) -> rho-tilde_2;
+#   asymmetric (directed, weighted)  -> rho-bar_2.
 NUC_MODELS = [
-    ('Uniform mutation',            'nuc_uniform',       'nuc_uniform'),
-    ('H. sapiens (symmetric)',      'nuc_h_sapiens_sym', 'nuc_h_sapiens_sym'),
-    ('E. coli (asymmetric)',        'nuc_e_coli',        'nuc_e_coli_sym'),
+    ('Uniform mutation',            'nuc_uniform',       'nuc_uniform',       r'$\rho_2$'),
+    ('H. sapiens (symmetric)',      'nuc_h_sapiens_sym', 'nuc_h_sapiens_sym', r'$\tilde{\rho}_2$'),
+    ('E. coli (asymmetric)',        'nuc_e_coli',        'nuc_e_coli_sym',    r'$\bar{\rho}_2$'),
 ]
 
-# AA uniform (separate figure)
-AA_MODEL = ('AA uniform', 'aa_uniform', 'aa_uniform')
+# AA uniform (separate figure) — uniform operator -> rho_2
+AA_MODEL = ('AA uniform', 'aa_uniform', 'aa_uniform', r'$\rho_2$')
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +75,7 @@ def load_model(suffix):
         return pickle.load(f)
 
 
-def draw_panel(ax, suffix, spec_key, title):
+def draw_panel(ax, suffix, spec_key, title, true_rho_label=r'$\rho_2$'):
     data = load_model(suffix)
     if data is None:
         ax.set_visible(False)
@@ -84,7 +88,8 @@ def draw_panel(ax, suffix, spec_key, title):
         means = np.array([np.mean(traj_results[t]) for t in range(len(trajectories))])
         errs  = np.array([np.std(traj_results[t])  for t in range(len(trajectories))])
 
-        ax.plot(trajectories, means, color=colours[h], lw=1.5, label=ld_name)
+        ax.plot(trajectories, means, color=colours[h], lw=1.5,
+                marker=MARKERS[h], ms=4, markevery=2, label=ld_name)
         ax.fill_between(trajectories, means - errs, means + errs,
                         alpha=0.12, color=colours[h], edgecolor=None)
 
@@ -100,6 +105,11 @@ def draw_panel(ax, suffix, spec_key, title):
     ax.tick_params(labelsize=7)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
+    # Per-panel true-rho symbol (operator-specific): the dotted reference lines are the
+    # true value for this mutation model, so label them rho_2 / tilde / bar accordingly.
+    ax.legend(handles=[mlines.Line2D([], [], color='grey', ls=':', lw=1.0,
+                                     label=f'True {true_rho_label}')],
+              fontsize=7, frameon=False, loc='upper right')
 
 
 # ---------------------------------------------------------------------------
@@ -108,18 +118,17 @@ def draw_panel(ax, suffix, spec_key, title):
 
 fig, axes = plt.subplots(1, 3, figsize=(9, 3.2), dpi=300)
 
-for ax, (title, suffix, spec_key) in zip(axes, NUC_MODELS):
-    draw_panel(ax, suffix, spec_key, title)
+for ax, (title, suffix, spec_key, true_rho) in zip(axes, NUC_MODELS):
+    draw_panel(ax, suffix, spec_key, title, true_rho_label=true_rho)
 
-# Legend: landscape colours + a single "true rho" dotted-line entry
+# Shared legend: landscape colours + markers (the true-rho symbol is per-panel, drawn by draw_panel)
 landscape_handles = [
-    mlines.Line2D([], [], color=colours[h], lw=1.5, label=name)
+    mlines.Line2D([], [], color=colours[h], lw=1.5, marker=MARKERS[h], ms=5, label=name)
     for h, name in enumerate(LANDSCAPE_NAMES)
 ]
-true_rho_handle = mlines.Line2D([], [], color='grey', ls=':', lw=1.0, label=r'True $\rho$')
-fig.legend(handles=landscape_handles + [true_rho_handle],
-           loc='lower center', ncol=5, fontsize=7.5,
-           bbox_to_anchor=(0.5, -0.12))
+fig.legend(handles=landscape_handles,
+           loc='lower center', ncol=4, fontsize=7.5,
+           bbox_to_anchor=(0.5, -0.10))
 
 plt.tight_layout()
 out_path = os.path.join(figures_dir, f'graph_mutation_model{STEPS_SUFFIX}.pdf')
@@ -135,10 +144,10 @@ print(f'Saved → {out_path}')
 PANEL_W_IN  = 3.0
 PANEL_H_IN  = 2.5
 
-for (title, suffix, spec_key), label in zip(NUC_MODELS, ['d', 'e', 'f']):
+for (title, suffix, spec_key, true_rho), label in zip(NUC_MODELS, ['d', 'e', 'f']):
     figp, axp = plt.subplots(1, 1, figsize=(PANEL_W_IN, PANEL_H_IN))
     figp.subplots_adjust(left=0.17, right=0.97, top=0.90, bottom=0.20)
-    draw_panel(axp, suffix, spec_key, title)
+    draw_panel(axp, suffix, spec_key, title, true_rho_label=true_rho)
     panel_path = os.path.join(figures_dir, f'accuracy_panel_{label}{STEPS_SUFFIX}.pdf')
     figp.savefig(panel_path, dpi=300)
     plt.close(figp)
@@ -148,10 +157,11 @@ for (title, suffix, spec_key), label in zip(NUC_MODELS, ['d', 'e', 'f']):
 fig_leg, ax_leg = plt.subplots(1, 1, figsize=(8.05, 0.45))
 ax_leg.set_visible(False)
 landscape_handles_leg = [
-    mlines.Line2D([], [], color=colours[h], lw=1.5, label=name)
+    mlines.Line2D([], [], color=colours[h], lw=1.5, marker=MARKERS[h], ms=5, label=name)
     for h, name in enumerate(LANDSCAPE_NAMES)
 ]
-true_rho_handle_leg = mlines.Line2D([], [], color='grey', ls=':', lw=1.0, label=r'True $\rho$')
+true_rho_handle_leg = mlines.Line2D([], [], color='grey', ls=':', lw=1.0,
+                                    label=r'True $\rho_2$ / $\tilde{\rho}_2$ / $\bar{\rho}_2$ (per panel)')
 fig_leg.legend(handles=landscape_handles_leg + [true_rho_handle_leg],
                loc='center', ncol=5, fontsize=7.5, frameon=False)
 legend_path = os.path.join(figures_dir, f'accuracy_panel_legend{STEPS_SUFFIX}.pdf')
@@ -164,13 +174,13 @@ print(f'Saved legend → {legend_path}')
 # ---------------------------------------------------------------------------
 
 fig2, ax2 = plt.subplots(1, 1, figsize=(3.5, 3.2), dpi=300)
-draw_panel(ax2, AA_MODEL[1], AA_MODEL[2], AA_MODEL[0])
+draw_panel(ax2, AA_MODEL[1], AA_MODEL[2], AA_MODEL[0], true_rho_label=AA_MODEL[3])
 
 landscape_handles2 = [
-    mlines.Line2D([], [], color=colours[h], lw=1.5, label=name)
+    mlines.Line2D([], [], color=colours[h], lw=1.5, marker=MARKERS[h], ms=5, label=name)
     for h, name in enumerate(LANDSCAPE_NAMES)
 ]
-true_rho_handle2 = mlines.Line2D([], [], color='grey', ls=':', lw=1.0, label=r'True $\rho$')
+true_rho_handle2 = mlines.Line2D([], [], color='grey', ls=':', lw=1.0, label=f'True {AA_MODEL[3]}')
 ax2.legend(handles=landscape_handles2 + [true_rho_handle2], fontsize=7.5, frameon=False)
 
 plt.tight_layout()

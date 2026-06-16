@@ -250,7 +250,7 @@ for row, (model_name, model_suffix, spec_key, _) in enumerate(MODELS):
         if row == 0:
             ax.set_title(ld_name, fontsize=9)
         if col == 0:
-            ax.set_ylabel(f'{model_name}\nFitness', fontsize=8, color='black')
+            ax.set_ylabel(f'{model_name}\n' + r'$G_\mu$', fontsize=8, color='black')
         if row == n_rows - 1:
             ax.set_xlabel('Generations $M$', fontsize=8)
 
