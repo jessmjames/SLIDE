@@ -41,6 +41,9 @@ gaps between runs, **not** the cost of generating any single product (and not th
 - ParD3 is **N=3** (5×5 grid, popsize 60). Other landscapes N=4, popsize 1200.
 - NK strategy grid is **execution-bound** at high M / many landscapes (M=100 × 200 landscapes ≈
   hours); `k`/`mutation_rate` are traced (not JIT-static) so the kernel compiles once per N.
+  This optimisation is **verified bit-exact** (max|Δ|=0) vs the old static-`k` kernel on the
+  worst-case point (N=50, K=50, 200 landscapes) — i.e. `nk_strategy_grid` (old code) and the M50/M100
+  grids (new code) are directly comparable.
 
 ## Archives (kept for reference — alternative parameterisations)
 
