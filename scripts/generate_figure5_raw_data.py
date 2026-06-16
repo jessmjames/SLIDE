@@ -12,11 +12,15 @@ three empirical landscapes are N=4 (7x7 grid, N4A20 lookup).
 
 Run from the repository root::
 
-    python scripts/generate_figure5_raw_data.py
+    python scripts/generate_figure5_raw_data.py                      # all missing products
+    python scripts/generate_figure5_raw_data.py --list               # show target names
+    python scripts/generate_figure5_raw_data.py --only nk_strategy_grid_M50          # just one
+    python scripts/generate_figure5_raw_data.py --only nk_strategy_grid_M50 --force  # force re-run
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 import time
@@ -227,27 +231,74 @@ def generate_empirical_trajectory_sweeps() -> None:
         )
 
 
-def main() -> None:
-    """Generate all raw-data products required by ``figure_5.ipynb``."""
+def _targets() -> dict[str, tuple]:
+    """Registry of generatable products: name -> (exists_predicate, run_callable).
 
+    ``exists_predicate()`` reports whether the product is already on disk (for the idempotent
+    skip); ``run_callable()`` (re)generates it. Each name is what ``--only`` accepts.
+    """
+    return {
+        # Figure 5A look-up (the expensive one) and its Figure S5 higher-horizon variants.
+        "nk_strategy_grid": (lambda: _exists("nk_strategy_grid"), generate_nk_strategy_grid),
+        "nk_strategy_grid_M50": (
+            lambda: _exists("nk_strategy_grid_M50"),
+            lambda: generate_nk_strategy_grid(num_steps=50, num_landscapes=50, output_key="nk_strategy_grid_M50", paper_reference="Figure S5"),
+        ),
+        "nk_strategy_grid_M100": (
+            lambda: _exists("nk_strategy_grid_M100"),
+            lambda: generate_nk_strategy_grid(num_steps=100, num_landscapes=50, output_key="nk_strategy_grid_M100", paper_reference="Figure S5"),
+        ),
+        # NK decay + strategy look-ups (each call writes two products).
+        "nk_lookup_N4": (
+            lambda: _exists("nk_decay_N4_A20") and _exists("nk_strategy_N4_A20"),
+            lambda: generate_nk_lookup(n_sites=4, k_values=[1, 2, 3], strategy_grid_size=7, decay_key="nk_decay_N4_A20", strategy_key="nk_strategy_N4_A20"),
+        ),
+        "nk_lookup_N3": (
+            lambda: _exists("nk_decay_N3_A20") and _exists("nk_strategy_N3_A20"),
+            lambda: generate_nk_lookup(n_sites=3, k_values=[1, 2], strategy_grid_size=5, decay_key="nk_decay_N3_A20", strategy_key="nk_strategy_N3_A20"),
+        ),
+        # Empirical panels (each loops the four landscapes internally).
+        "empirical_decay": (
+            lambda: all(_exists(f"empirical_decay_{name}_uniform") for name in EMPIRICAL_NAMES),
+            generate_empirical_decay,
+        ),
+        "empirical_traj": (
+            lambda: all(_exists(f"empirical_strategy_traj_{name}") for name in EMPIRICAL_NAMES),
+            generate_empirical_trajectory_sweeps,
+        ),
+    }
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Generate raw-data products for ``figure_5.ipynb`` — all of them, or a chosen subset.
+
+    With no arguments, regenerates every missing product (idempotent: existing ones are skipped).
+    ``--only`` restricts to named targets; ``--force`` regenerates even if present; ``--list``
+    prints the available target names (marking which already exist) and exits.
+    """
+    targets = _targets()
+    parser = argparse.ArgumentParser(description="Generate Figure-5 raw-data products (idempotent).")
+    parser.add_argument("--only", nargs="+", choices=list(targets), metavar="TARGET",
+                        help="Generate only these target(s). Choices: " + ", ".join(targets))
+    parser.add_argument("--force", action="store_true", help="Regenerate even if the product already exists.")
+    parser.add_argument("--list", action="store_true", help="List target names (and whether each exists) and exit.")
+    args = parser.parse_args(argv)
+
+    if args.list:
+        for name, (exists_fn, _) in targets.items():
+            print(f"  {name}{'  [exists]' if exists_fn() else ''}")
+        return
+
+    selected = args.only or list(targets)
     print(f"Writing raw data to: {get_raw_data_dir()}")
     start = time.perf_counter()
-    # Idempotent: skip products that already exist so re-runs only generate what's missing.
-    if not _exists("nk_strategy_grid"):
-        generate_nk_strategy_grid()
-    # Figure S5: same NK look-up at higher DE iterations. 50 landscapes is plenty for the
-    # binned strategy trend (5A uses 200 for the main panel); M=100 at 200 would run hours.
-    for m in (50, 100):
-        if not _exists(f"nk_strategy_grid_M{m}"):
-            generate_nk_strategy_grid(num_steps=m, num_landscapes=50, output_key=f"nk_strategy_grid_M{m}", paper_reference="Figure S5")
-    if not (_exists("nk_decay_N4_A20") and _exists("nk_strategy_N4_A20")):
-        generate_nk_lookup(n_sites=4, k_values=[1, 2, 3], strategy_grid_size=7, decay_key="nk_decay_N4_A20", strategy_key="nk_strategy_N4_A20")
-    if not (_exists("nk_decay_N3_A20") and _exists("nk_strategy_N3_A20")):
-        generate_nk_lookup(n_sites=3, k_values=[1, 2], strategy_grid_size=5, decay_key="nk_decay_N3_A20", strategy_key="nk_strategy_N3_A20")
-    if not all(_exists(f"empirical_decay_{name}_uniform") for name in EMPIRICAL_NAMES):
-        generate_empirical_decay()
-    if not all(_exists(f"empirical_strategy_traj_{name}") for name in EMPIRICAL_NAMES):
-        generate_empirical_trajectory_sweeps()
+    for name in selected:
+        exists_fn, run_fn = targets[name]
+        if exists_fn() and not args.force:
+            print(f"skip {name} (exists — pass --force to regenerate)")
+            continue
+        print(f"=== generating {name} ===")
+        run_fn()
     print(f"Done in {(time.perf_counter() - start) / 60:.1f} min")
 
 
