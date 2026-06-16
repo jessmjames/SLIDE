@@ -16,14 +16,19 @@ Every pkl embeds its own `params` + `metadata` (incl. `paper_reference`) dict �
 
 ## Products
 
-**Timings are single-run, per-product wall-clock on an RTX 5090 (WSL2).** ⓜ = measured this run
-(from logs / consecutive file mtimes); ⓔ = earlier estimate, not freshly re-measured. The *total*
-project time was several hours — but that is cumulative across many re-run / debug cycles and idle
-gaps between runs, **not** the cost of generating any single product (and not the sum below).
+**Timings are single-run, per-product wall-clock on an RTX 5090 (WSL2).** "(measured)" = from this
+run's logs / consecutive file mtimes; "(est.)" = earlier estimate, not freshly re-measured. The
+*total* project time was several hours — but that is cumulative across many re-run / debug cycles
+and idle gaps between runs, **not** the cost of generating any single product (and not the sum below).
 
-Timing key: **(measured)** = from this run's logs / consecutive file mtimes; **(est.)** = earlier
-estimate, not freshly re-measured. All products below are written by
-`scripts/generate_figure5_raw_data.py`; the *Generator fn* column names the function inside it.
+All products are written by `scripts/generate_figure5_raw_data.py`. The *Generator fn* column names
+the function inside it — a navigation pointer, **not** a standalone command (each is called from
+`main()` with extra args). The actual reproduction recipe is the single command at the top of this
+file; it regenerates everything idempotently and the exact parameters live inside each pkl's `params`.
+
+**For byte-identical reproduction** you also need: the fixed **seed = 42** (set in the script;
+also stored in each pkl), and the **same jax/jaxlib version (0.7.2)** — JAX RNG streams and XLA
+lowering can differ across versions, so a different jax can give numerically different pkls.
 
 | File | Figure | Generator fn | Key params | Gen time |
 |------|--------|--------------|------------|----------|
