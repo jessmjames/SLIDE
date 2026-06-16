@@ -49,17 +49,19 @@ colours = [matplotlib.colormaps['tab10'](i) for i in [1, 0, 2, 3]]
 # Per-landscape markers (distinct shapes, as on Fig 4)
 MARKERS = ['o', 's', '^', 'D']  # GB1, TrpB, TEV, ParD3
 
-# Nuc models (main figure). 4th field = the true-rho symbol for this mutation operator:
-#   uniform (undirected, unweighted) -> rho_2; symmetric (undirected, weighted) -> rho-tilde_2;
-#   asymmetric (directed, weighted)  -> rho-bar_2.
+# Nuc models (main figure). Fields: (title, suffix, spec_key, true_rho_label, fit_label).
+# The mutation operator sets BOTH the true-rho symbol and the fitted (y-axis) symbol:
+#   uniform (undirected, unweighted) -> rho_2 / rho_2^fit
+#   symmetric (undirected, weighted) -> rho-tilde_2 / rho-tilde_2^fit
+#   asymmetric (directed, weighted)  -> rho-bar_2 / rho-bar_2^fit
 NUC_MODELS = [
-    ('Uniform mutation',            'nuc_uniform',       'nuc_uniform',       r'$\rho_2$'),
-    ('H. sapiens (symmetric)',      'nuc_h_sapiens_sym', 'nuc_h_sapiens_sym', r'$\tilde{\rho}_2$'),
-    ('E. coli (asymmetric)',        'nuc_e_coli',        'nuc_e_coli_sym',    r'$\bar{\rho}_2$'),
+    ('Uniform mutation',            'nuc_uniform',       'nuc_uniform',       r'$\rho_2$',         r'$\rho_2^{\mathrm{fit}}$'),
+    ('H. sapiens (symmetric)',      'nuc_h_sapiens_sym', 'nuc_h_sapiens_sym', r'$\tilde{\rho}_2$', r'$\tilde{\rho}_2^{\,\mathrm{fit}}$'),
+    ('E. coli (asymmetric)',        'nuc_e_coli',        'nuc_e_coli_sym',    r'$\bar{\rho}_2$',   r'$\bar{\rho}_2^{\,\mathrm{fit}}$'),
 ]
 
-# AA uniform (separate figure) — uniform operator -> rho_2
-AA_MODEL = ('AA uniform', 'aa_uniform', 'aa_uniform', r'$\rho_2$')
+# AA uniform (separate figure) — uniform operator -> rho_2 / rho_2^fit
+AA_MODEL = ('AA uniform', 'aa_uniform', 'aa_uniform', r'$\rho_2$', r'$\rho_2^{\mathrm{fit}}$')
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +77,7 @@ def load_model(suffix):
         return pickle.load(f)
 
 
-def draw_panel(ax, suffix, spec_key, title, true_rho_label=r'$\rho_2$'):
+def draw_panel(ax, suffix, spec_key, title, true_rho_label=r'$\rho_2$', ylabel=r'$\rho_2^{\mathrm{fit}}$'):
     data = load_model(suffix)
     if data is None:
         ax.set_visible(False)
@@ -101,7 +103,7 @@ def draw_panel(ax, suffix, spec_key, title, true_rho_label=r'$\rho_2$'):
     ax.set_xscale('log')
     ax.set_title(title, fontsize=9)
     ax.set_xlabel('Starting points used', fontsize=8)
-    ax.set_ylabel(r'$\rho_2^{\mathrm{fit}}$', fontsize=8)
+    ax.set_ylabel(ylabel, fontsize=8)
     ax.tick_params(labelsize=7)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -118,8 +120,8 @@ def draw_panel(ax, suffix, spec_key, title, true_rho_label=r'$\rho_2$'):
 
 fig, axes = plt.subplots(1, 3, figsize=(9, 3.2), dpi=300)
 
-for ax, (title, suffix, spec_key, true_rho) in zip(axes, NUC_MODELS):
-    draw_panel(ax, suffix, spec_key, title, true_rho_label=true_rho)
+for ax, (title, suffix, spec_key, true_rho, fit_label) in zip(axes, NUC_MODELS):
+    draw_panel(ax, suffix, spec_key, title, true_rho_label=true_rho, ylabel=fit_label)
 
 # Shared legend: landscape colours + markers (the true-rho symbol is per-panel, drawn by draw_panel)
 landscape_handles = [
@@ -144,10 +146,10 @@ print(f'Saved → {out_path}')
 PANEL_W_IN  = 3.0
 PANEL_H_IN  = 2.5
 
-for (title, suffix, spec_key, true_rho), label in zip(NUC_MODELS, ['d', 'e', 'f']):
+for (title, suffix, spec_key, true_rho, fit_label), label in zip(NUC_MODELS, ['d', 'e', 'f']):
     figp, axp = plt.subplots(1, 1, figsize=(PANEL_W_IN, PANEL_H_IN))
     figp.subplots_adjust(left=0.17, right=0.97, top=0.90, bottom=0.20)
-    draw_panel(axp, suffix, spec_key, title, true_rho_label=true_rho)
+    draw_panel(axp, suffix, spec_key, title, true_rho_label=true_rho, ylabel=fit_label)
     panel_path = os.path.join(figures_dir, f'accuracy_panel_{label}{STEPS_SUFFIX}.pdf')
     figp.savefig(panel_path, dpi=300)
     plt.close(figp)
@@ -174,7 +176,7 @@ print(f'Saved legend → {legend_path}')
 # ---------------------------------------------------------------------------
 
 fig2, ax2 = plt.subplots(1, 1, figsize=(3.5, 3.2), dpi=300)
-draw_panel(ax2, AA_MODEL[1], AA_MODEL[2], AA_MODEL[0], true_rho_label=AA_MODEL[3])
+draw_panel(ax2, AA_MODEL[1], AA_MODEL[2], AA_MODEL[0], true_rho_label=AA_MODEL[3], ylabel=AA_MODEL[4])
 
 landscape_handles2 = [
     mlines.Line2D([], [], color=colours[h], lw=1.5, marker=MARKERS[h], ms=5, label=name)
