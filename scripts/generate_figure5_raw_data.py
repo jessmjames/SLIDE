@@ -63,9 +63,9 @@ def _exists(key: str) -> bool:
 # One sim at the SLIDE calibration mutation (0.1/N) and popsize, run out to a long horizon.
 # The notebook shows the heat map as the HEATMAP_GEN (25) slice — the calibration point that
 # matches the published figure + the look-up — while the DE lines use the full DE_GENERATIONS.
-DE_GENERATIONS = 150
-HEATMAP_GEN = 25
-DE_POPSIZE = 1200
+DE_GENERATIONS = int(os.environ.get("DE_GENERATIONS", "150"))
+HEATMAP_GEN = int(os.environ.get("HEATMAP_GEN", "25"))
+DE_POPSIZE = int(os.environ.get("DE_POPSIZE", "1200"))
 DE_STARTS = int(os.environ.get("DE_STARTS", "100"))
 DE_REPS = int(os.environ.get("DE_REPS", "300"))
 DE_BATCH = int(os.environ.get("DE_BATCH", "0"))  # replicates per fused vmap; 0 = all at once
@@ -193,18 +193,21 @@ def generate_empirical_decay() -> None:
             {
                 "data": decay,
                 "params": {"name": name, "mutation_rate": 0.1, "per_site_mutation_rate": per_site, "popsize": popsize, "starts_count": starts_count, "start_policy": "uniform", "num_reps": 10, "M": 25, "seed": SEED},
-                "metadata": {"description": f"{name} uniform-start empirical decay curves.", "paper_reference": "Figure 4", "output_key": f"empirical_decay_{name}_uniform", "filename": RAW_FILENAMES[f"empirical_decay_{name}_uniform"]},
+                "metadata": {"description": f"{name} uniform-start empirical decay curves.", "paper_reference": "Figure 5D-G", "output_key": f"empirical_decay_{name}_uniform", "filename": RAW_FILENAMES[f"empirical_decay_{name}_uniform"]},
             },
             RAW_FILENAMES[f"empirical_decay_{name}_uniform"],
         )
 
 
-def generate_empirical_trajectory_sweeps() -> None:
-    """Generate the unified best-variant trajectory sweep per empirical landscape (heat map + lines)."""
+def generate_empirical_trajectory_sweeps(force: bool = False) -> None:
+    """Generate the unified best-variant trajectory sweep per empirical landscape (heat map + lines).
+
+    Skips landscapes whose product already exists (per-landscape resume) unless ``force`` is set.
+    """
 
     landscapes = {name: load_empirical_landscape(name) for name in EMPIRICAL_NAMES}
     for name, landscape in tqdm(landscapes.items(), desc="empirical trajectory sweep (D-G)"):
-        if _exists(f"empirical_strategy_traj_{name}"):
+        if not force and _exists(f"empirical_strategy_traj_{name}"):
             continue  # per-landscape skip so we only regenerate what's missing
         grid_size = 5 if landscape.ndim == 3 else 7
         # ParD3 is the small 3-site landscape: keep its original popsize 60 (matches the published
@@ -235,36 +238,38 @@ def _targets() -> dict[str, tuple]:
     """Registry of generatable products: name -> (exists_predicate, run_callable).
 
     ``exists_predicate()`` reports whether the product is already on disk (for the idempotent
-    skip); ``run_callable()`` (re)generates it. Each name is what ``--only`` accepts.
+    skip); ``run_callable(force)`` (re)generates it. Each name is what ``--only`` accepts. Every
+    run-callable accepts a ``force`` flag (only ``empirical_traj`` acts on it, for its per-landscape
+    resume skip; the others always regenerate when called — gating is done by ``main()``).
     """
     return {
         # Figure 5A look-up (the expensive one) and its Figure S5 higher-horizon variants.
-        "nk_strategy_grid": (lambda: _exists("nk_strategy_grid"), generate_nk_strategy_grid),
+        "nk_strategy_grid": (lambda: _exists("nk_strategy_grid"), lambda force=False: generate_nk_strategy_grid()),
         "nk_strategy_grid_M50": (
             lambda: _exists("nk_strategy_grid_M50"),
-            lambda: generate_nk_strategy_grid(num_steps=50, num_landscapes=50, output_key="nk_strategy_grid_M50", paper_reference="Figure S5"),
+            lambda force=False: generate_nk_strategy_grid(num_steps=50, num_landscapes=50, output_key="nk_strategy_grid_M50", paper_reference="Figure S5"),
         ),
         "nk_strategy_grid_M100": (
             lambda: _exists("nk_strategy_grid_M100"),
-            lambda: generate_nk_strategy_grid(num_steps=100, num_landscapes=50, output_key="nk_strategy_grid_M100", paper_reference="Figure S5"),
+            lambda force=False: generate_nk_strategy_grid(num_steps=100, num_landscapes=50, output_key="nk_strategy_grid_M100", paper_reference="Figure S5"),
         ),
         # NK decay + strategy look-ups (each call writes two products).
         "nk_lookup_N4": (
             lambda: _exists("nk_decay_N4_A20") and _exists("nk_strategy_N4_A20"),
-            lambda: generate_nk_lookup(n_sites=4, k_values=[1, 2, 3], strategy_grid_size=7, decay_key="nk_decay_N4_A20", strategy_key="nk_strategy_N4_A20"),
+            lambda force=False: generate_nk_lookup(n_sites=4, k_values=[1, 2, 3], strategy_grid_size=7, decay_key="nk_decay_N4_A20", strategy_key="nk_strategy_N4_A20"),
         ),
         "nk_lookup_N3": (
             lambda: _exists("nk_decay_N3_A20") and _exists("nk_strategy_N3_A20"),
-            lambda: generate_nk_lookup(n_sites=3, k_values=[1, 2], strategy_grid_size=5, decay_key="nk_decay_N3_A20", strategy_key="nk_strategy_N3_A20"),
+            lambda force=False: generate_nk_lookup(n_sites=3, k_values=[1, 2], strategy_grid_size=5, decay_key="nk_decay_N3_A20", strategy_key="nk_strategy_N3_A20"),
         ),
         # Empirical panels (each loops the four landscapes internally).
         "empirical_decay": (
             lambda: all(_exists(f"empirical_decay_{name}_uniform") for name in EMPIRICAL_NAMES),
-            generate_empirical_decay,
+            lambda force=False: generate_empirical_decay(),
         ),
         "empirical_traj": (
             lambda: all(_exists(f"empirical_strategy_traj_{name}") for name in EMPIRICAL_NAMES),
-            generate_empirical_trajectory_sweeps,
+            lambda force=False: generate_empirical_trajectory_sweeps(force=force),
         ),
     }
 
@@ -298,7 +303,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"skip {name} (exists — pass --force to regenerate)")
             continue
         print(f"=== generating {name} ===")
-        run_fn()
+        run_fn(force=args.force)
     print(f"Done in {(time.perf_counter() - start) / 60:.1f} min")
 
 
