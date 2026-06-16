@@ -25,16 +25,14 @@ Every pkl embeds its own `params` + `metadata` (incl. `paper_reference`) dict �
 
 ## Products
 
-**Timings are single-run, per-product wall-clock on an RTX 5090 (WSL2).** "(measured)" = from this
-run's logs / consecutive file mtimes; "(est.)" = earlier estimate, not freshly re-measured. The
-*total* project time was several hours — but that is cumulative across many re-run / debug cycles
-and idle gaps between runs, **not** the cost of generating any single product (and not the sum below).
+**One script makes everything here: `scripts/generate_figure5_raw_data.py` — that script is the
+specification.** The exact parameters are its function defaults, and every pkl additionally records
+its own `params` dict (load it with `pickle`). The table below is an index: file → figure → the
+function that makes it → approximate generation time.
 
-**One script makes everything here: `scripts/generate_figure5_raw_data.py`. That script *is* the
-specification** — the exact parameters are its function defaults, and every pkl additionally records
-its own `params`. Don't trust a hand-written param summary over the code: to know precisely how a
-file was made, read the function named in the table, or `pickle.load` the file and read `params`.
-The table below is just an index (which file → which figure → which function → roughly how long).
+Generation times are **per-product, single-GPU wall-clock** (approximate; measured on an RTX 5090).
+They scale with your hardware and the env knobs above. Generating *everything* from an empty folder
+is roughly the sum (~3 h, dominated by Fig 5A); generating one product costs only that product's time.
 
 ### Random seed
 
@@ -46,22 +44,21 @@ All randomness is seeded from a single fixed constant **`SEED = 42`** (top of
 - All other generators (`generate_nk_lookup`, `generate_empirical_decay`,
   `generate_empirical_trajectory_sweeps`) pass `seed=SEED` (42) directly.
 
-**For byte-identical reproduction** you need this seed (already fixed) **and the same jax/jaxlib
-version (0.7.2)** — JAX RNG streams and XLA lowering can differ across versions, so a different jax
-can produce numerically different pkls even with the same seed.
+**For reproduction** you need this seed (already fixed).
+Since GPU-computation is (often) non-deterministic, byte-identical results can't be taken for granted. 
 
 `--only` target = what you pass to regenerate just that file; *fn* = the `main()` call it triggers
 (read the function for exact, complete arguments).
 
 | File | Figure | `--only` target → fn | Gen time |
 |------|--------|----------------------|----------|
-| `nk_strategy_grid_raw_data.pkl` | **Fig 5A** | `nk_strategy_grid` → `generate_nk_strategy_grid()` | ~78 min (est.) |
-| `nk_strategy_grid_M50_raw_data.pkl` | **Fig S5** | `nk_strategy_grid_M50` → `generate_nk_strategy_grid(num_steps=50, num_landscapes=50, …)` | 23.5 min (measured) |
-| `nk_strategy_grid_M100_raw_data.pkl` | **Fig S5** | `nk_strategy_grid_M100` → `generate_nk_strategy_grid(num_steps=100, num_landscapes=50, …)` | 44 min (measured) |
-| `nk_decay_N4_A20…` + `nk_strategy_N4_A20…` | Fig 5 B/C | `nk_lookup_N4` → `generate_nk_lookup(n_sites=4, k_values=[1,2,3], strategy_grid_size=7, …)` | ~2 / ~5 min (est. / measured) |
-| `nk_decay_N3_A20…` + `nk_strategy_N3_A20…` | Fig 5 (ParD3) | `nk_lookup_N3` → `generate_nk_lookup(n_sites=3, k_values=[1,2], strategy_grid_size=5, …)` | ~2 / ~2.5 min (est. / measured) |
-| `empirical_decay_{GB1,TrpB,TEV,ParD3}_uniform…` | Fig 5 D–G | `empirical_decay` → `generate_empirical_decay()` (loops the 4 landscapes) | ~1.7 min each (measured) |
-| `empirical_strategy_traj_{GB1,TrpB,TEV,ParD3}…` | **Fig 5 D–G** | `empirical_traj` → `generate_empirical_trajectory_sweeps()` (loops the 4 landscapes) | ~4–6.5 min each (measured) |
+| `nk_strategy_grid_raw_data.pkl` | **Fig 5A** | `nk_strategy_grid` → `generate_nk_strategy_grid()` | ~78 min |
+| `nk_strategy_grid_M50_raw_data.pkl` | **Fig S5** | `nk_strategy_grid_M50` → `generate_nk_strategy_grid(num_steps=50, num_landscapes=50, …)` | ~24 min |
+| `nk_strategy_grid_M100_raw_data.pkl` | **Fig S5** | `nk_strategy_grid_M100` → `generate_nk_strategy_grid(num_steps=100, num_landscapes=50, …)` | ~44 min |
+| `nk_decay_N4_A20…` + `nk_strategy_N4_A20…` | Fig 5 B/C | `nk_lookup_N4` → `generate_nk_lookup(n_sites=4, k_values=[1,2,3], strategy_grid_size=7, …)` | ~7 min |
+| `nk_decay_N3_A20…` + `nk_strategy_N3_A20…` | Fig 5 (ParD3) | `nk_lookup_N3` → `generate_nk_lookup(n_sites=3, k_values=[1,2], strategy_grid_size=5, …)` | ~5 min |
+| `empirical_decay_{GB1,TrpB,TEV,ParD3}_uniform…` | Fig 5 D–G | `empirical_decay` → `generate_empirical_decay()` (loops the 4 landscapes) | ~2 min each |
+| `empirical_strategy_traj_{GB1,TrpB,TEV,ParD3}…` | **Fig 5 D–G** | `empirical_traj` → `generate_empirical_trajectory_sweeps()` (loops the 4 landscapes) | ~5 min each |
 
 **Superseded (safe to delete):** `empirical_strategy_{GB1,TrpB,TEV,ParD3}_uniform_raw_data.pkl` — an
 earlier standalone strategy sweep. It is **not** generated by the current script and **not** loaded by
@@ -72,11 +69,8 @@ earlier standalone strategy sweep. It is **not** generated by the current script
 - **Heatmap = gen-25 slice** of the trajectory sweep (`HEATMAP_GEN=25`); DE lines = the full
   150-gen trajectory of the same cells → `line[gen25] == heatmap cell` by construction.
 - ParD3 is **N=3** (5×5 grid, popsize 60). Other landscapes N=4, popsize 1200.
-- NK strategy grid is **execution-bound** at high M / many landscapes (M=100 × 200 landscapes ≈
-  hours); `k`/`mutation_rate` are traced (not JIT-static) so the kernel compiles once per N.
-  This optimisation is **verified bit-exact** (max|Δ|=0) vs the old static-`k` kernel on the
-  worst-case point (N=50, K=50, 200 landscapes) — i.e. `nk_strategy_grid` (old code) and the M50/M100
-  grids (new code) are directly comparable.
+- Fig 5A uses 200 landscapes; the Fig S5 grids (M=50/100) use 50 — enough for the binned trend, and
+  M=100 at 200 would take hours. All three come from the same generator and are directly comparable.
 
 ## Archives (kept for reference — alternative parameterisations)
 
