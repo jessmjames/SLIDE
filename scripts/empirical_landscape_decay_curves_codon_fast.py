@@ -19,12 +19,16 @@ Mutation rate: m / n_nuc  (same expected mutations per sequence per step)
   GB1   (4 AA → 12 nt): 0.1/12 ≈ 0.0083 per nt site
   TrpB/TEV/ParD3 (3 AA → 9 nt): 0.1/9 ≈ 0.0111 per nt site
 
-Output shape: (-1, 100, 10, 25)
+Output shape: (-1, 100, 10, NUM_STEPS)
   Compatible with ruggedness_figures_data_processing.ipynb (.mean(axis=2).reshape(-1,25))
 
 Output files (SLIDE_data/):
   decay_curves_{landscape}_{model}_m0.1_all_starts.pkl
 """
+
+from __future__ import annotations
+
+from collections.abc import Callable
 
 import sys
 import os
@@ -52,6 +56,17 @@ from slide_config import get_slide_data_dir
 slide_data_dir = str(get_slide_data_dir())
 landscape_dir = os.path.join(parent_dir, 'landscape_arrays')
 matrix_dir = os.path.join(parent_dir, 'other_data')
+NUM_STEPS = int(os.environ.get("SLIDE_NUM_STEPS", "25"))
+SELECTED_MODELS = {
+    name.strip()
+    for name in os.environ.get(
+        "SLIDE_MUTATION_MODELS",
+        "nuc_uniform,nuc_h_sapiens_sym,nuc_h_sapiens,nuc_e_coli",
+    ).split(",")
+    if name.strip()
+}
+OVERWRITE = os.environ.get("SLIDE_OVERWRITE", "0") == "1"
+os.makedirs(slide_data_dir, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +91,14 @@ def aa_starts_to_codon(aa_starts):
 # Core simulation
 # ---------------------------------------------------------------------------
 
-def generate_decay_curve(start_array, fitness_function, mutation_function,
-                         p=2500, batch_size=500):
+def generate_decay_curve(
+    start_array: np.ndarray,
+    fitness_function: Callable[[jax.Array], jax.Array],
+    mutation_function: Callable[[jax.Array, jax.Array], jax.Array],
+    p: int = 2500,
+    batch_size: int = 500,
+    num_steps: int = NUM_STEPS,
+) -> np.ndarray:
     """
     Run directed evolution from every row in start_array.
 
@@ -91,7 +112,7 @@ def generate_decay_curve(start_array, fitness_function, mutation_function,
 
     Returns
     -------
-    np.ndarray of shape (-1, 100, 10, 25)
+    np.ndarray of shape (-1, 100, 10, num_steps)
     """
     start_array = np.array(start_array)
     total_starts, ndim = start_array.shape
@@ -108,7 +129,7 @@ def generate_decay_curve(start_array, fitness_function, mutation_function,
         rep_results = jax.vmap(
             lambda r: run_directed_evolution(
                 r, i_pop, selection_function, mutation_function,
-                fitness_function=fitness_function, num_steps=25
+                fitness_function=fitness_function, num_steps=num_steps
             )[1]
         )(rng_seeds)
         return rep_results['fitness'].mean(axis=-1)   # (10, 25)
@@ -131,7 +152,7 @@ def generate_decay_curve(start_array, fitness_function, mutation_function,
         results.append(np.array(batch_result))
 
     combined = np.concatenate(results, axis=0)   # (total_starts, 10, 25)
-    return combined.reshape(-1, 100, 10, 25)      # (-1, 100, 10, 25)
+    return combined.reshape(-1, 100, 10, num_steps)
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +208,8 @@ MUTATION_MODELS = [
 # ---------------------------------------------------------------------------
 
 for model_name, mut_type, mut_matrix in MUTATION_MODELS:
+    if model_name not in SELECTED_MODELS:
+        continue
     print(f"\n{'='*60}")
     print(f"Mutation model: {model_name}")
     print(f"{'='*60}")
@@ -205,12 +228,25 @@ for model_name, mut_type, mut_matrix in MUTATION_MODELS:
         else:
             mut_fn = build_custom_mutation_function(site_rate, mut_matrix, A=4)
 
-        results = generate_decay_curve(starts, fit_fn, mut_fn, batch_size=500)
-
+        suffix = f"_{NUM_STEPS}steps" if NUM_STEPS != 25 else ""
         out_path = os.path.join(
             slide_data_dir,
-            f"decay_curves_{ld_name}_{model_name}_m0.1_all_starts.pkl"
+            f"decay_curves_{ld_name}_{model_name}_m0.1_all_starts{suffix}.pkl"
         )
+        if os.path.exists(out_path) and not OVERWRITE:
+            print(f"  Skipping existing product: {out_path}")
+            continue
+
+        population_size = 60 if ld_name == "pard3" else 2500
+        results = generate_decay_curve(
+            starts,
+            fit_fn,
+            mut_fn,
+            p=population_size,
+            batch_size=500,
+            num_steps=NUM_STEPS,
+        )
+
         with open(out_path, 'wb') as f:
             pickle.dump(results, f)
         print(f"  Saved {results.shape} → {out_path}")
