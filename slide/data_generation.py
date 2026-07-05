@@ -20,6 +20,7 @@ from . import selection_function_library as slct
 from .direvo_functions import (
     base_chance_threshold_fixed_prop,
     build_NK_landscape_function,
+    build_custom_mutation_function,
     build_empirical_landscape_function,
     build_mutation_function,
     build_selection_function,
@@ -377,6 +378,8 @@ def run_nk_start_averaged_diffusion(
     mutation_rate_per_site: float,
     num_reps_per_start: int,
     num_steps: int,
+    mutation_matrix: np.ndarray | None = None,
+    return_replicates: bool = False,
 ) -> np.ndarray:
     """Run start-resolved diffusion on one NK landscape with JAX batching.
 
@@ -401,16 +404,38 @@ def run_nk_start_averaged_diffusion(
         Number of independent diffusion replicates for each start.
     - num_steps: int
         Number of mutation-only generations.
+    - mutation_matrix: np.ndarray | None
+        Optional row-stochastic allelic transition matrix. Uniform mutation is
+        used when this is ``None``.
+    - return_replicates: bool
+        Return every population replicate instead of averaging replicates.
 
     Returns:
     - np.ndarray
-        Start-level mean fitness trajectories with shape ``(num_starts, num_steps)``.
+        Fitness trajectories with shape ``(num_starts, num_steps)`` when
+        ``return_replicates`` is false, otherwise
+        ``(num_starts, num_reps_per_start, num_steps)``.
     """
 
     starts_array = jnp.asarray(starts, dtype=jnp.int32)
     num_starts = int(starts_array.shape[0])
     fitness_function = build_NK_landscape_function(rng_key, n_sites, k)
-    mutation_function = build_mutation_function(mutation_rate_per_site, num_alleles)
+    if mutation_matrix is None:
+        mutation_function = build_mutation_function(mutation_rate_per_site, num_alleles)
+    else:
+        matrix = np.asarray(mutation_matrix, dtype=float)
+        if matrix.shape != (num_alleles, num_alleles):
+            raise ValueError(
+                f"Expected mutation matrix shape {(num_alleles, num_alleles)}, "
+                f"received {matrix.shape}."
+            )
+        if np.any(matrix < 0) or not np.allclose(matrix.sum(axis=1), 1.0):
+            raise ValueError("Mutation matrix must be non-negative and row-stochastic.")
+        mutation_function = build_custom_mutation_function(
+            mutation_rate_per_site,
+            jnp.asarray(matrix),
+            A=num_alleles,
+        )
     initial_populations = jnp.repeat(starts_array[:, None, :], int(popsize), axis=1)
     if trajectory_rng_key is None:
         trajectory_rng_key = rng_key
@@ -433,6 +458,8 @@ def run_nk_start_averaged_diffusion(
     run_one_start = jax.vmap(run_one_replicate, in_axes=(None, 0))
     run_all_starts = jax.jit(jax.vmap(run_one_start, in_axes=(0, 0)))
     replicate_curves = run_all_starts(initial_populations, replicate_keys)
+    if return_replicates:
+        return np.asarray(replicate_curves, dtype=float)
     return np.asarray(replicate_curves.mean(axis=1), dtype=float)
 
 
