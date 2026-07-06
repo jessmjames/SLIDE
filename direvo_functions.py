@@ -621,3 +621,150 @@ def get_single_decay_rate_IK_v2(decay_data, mut = 0.1, num_steps = 25, fix_ampli
     return rho, C, c
 
 
+
+# --- Alternative landscape builders (additive / house-of-cards / rough Mount Fuji / stochastic block) ---
+# Ported from rebut_codon for Figure S1 (NK vs RMF vs block-model robustness comparison).
+def build_house_of_cards_landscape_function(
+    rng, N, scale=1.0, fitness_distribution=jr.normal
+):
+    """
+    Looks up fitness values on a House of Cards landscape.
+    Each possible gene sequence has a fitness value sampled from the fitness_distribution, at random.
+
+    Parameters:
+    - rng: Jax random number key (e.g jax.random.PRNGKey(0)).
+    - N: integer value representing number of sites in the gene.
+    - fitness_distribution: Distribution from which individual fitness values are sampled.
+
+    Returns:
+    - Function that takes gene sequence as input, and returns fitness value.
+    """
+
+    r1, r2 = jr.split(rng, 2)
+
+    # Function for generating rng keys, ensuring that they are derived from the same base rng.
+    vector_foldin = jax.vmap(lambda base_rng, data: jr.fold_in(base_rng, data))
+
+    def get_fitness(gene):
+        individual_site_fitness_keys = vector_foldin(jr.split(r1, N), gene)
+        overall_fitness_key = individual_site_fitness_keys.sum(axis=0) + r2
+        return fitness_distribution(overall_fitness_key) * scale
+
+    return jax.jit(jax.vmap(get_fitness))
+
+
+def build_additive_landscape_function(
+    rng, N, scale=1.0, fitness_distribution=jr.normal
+):
+    """
+    Looks up fitness values on an Additive landscape.
+    Each site contributes independently to the overall fitness.
+    Every potential allele at each site has a fitness value sampled from the fitness_distribution, at random.
+
+    Parameters:
+    - rng: Jax random number key (e.g jax.random.PRNGKey(0)).
+    - N: integer value representing number of sites in the gene.
+    - fitness_distribution: Distribution from which individual fitness values are sampled.
+
+    Returns:
+    - Function that takes gene sequence as input, and returns fitness value.
+    """
+
+    # Function for generating rng keys, ensuring that they are derived from the same base rng.
+    vector_foldin = jax.vmap(lambda base_rng, data: jr.fold_in(base_rng, data))
+
+    fitness_distribution = jax.vmap(fitness_distribution)
+
+    def get_fitness(gene):
+        individual_site_fitness_keys = vector_foldin(jr.split(rng, N), gene)
+        return fitness_distribution(individual_site_fitness_keys).sum() * scale
+
+    return jax.jit(jax.vmap(get_fitness))
+
+
+def build_rough_mount_fuji_landscape_function(
+    rng,
+    N,
+    slope_scale=1.0,
+    noise_scale=1.0,
+    noise_distribution=jr.normal,
+    slope_distribution=jr.normal,
+):
+    """
+    Looks up fitness values on a Rough Mount Fuji landscape.
+    This is simply the sum of an additive landscape and a house of cards landscape.
+
+    Parameters:
+    - rng: Jax random number key (e.g jax.random.PRNGKey(0)).
+    - N: integer value representing number of sites in the gene.
+    - slope_scale: Scale of the additive slope component.
+    - noise_scale: Scale of the random noise component.
+    - noise_distribution: Distribution from which noise fitness values are sampled.
+    - slope_distribution: Distribution from which slope fitness values are sampled.
+
+    Returns:
+    - Function that takes gene sequence as input, and returns fitness value.
+    """
+
+    r1, r2 = jr.split(rng, 2)
+
+    additive_landscape = build_additive_landscape_function(
+        r1, N, scale=slope_scale, fitness_distribution=slope_distribution
+    )
+    noise_landscape = build_house_of_cards_landscape_function(
+        r2, N, scale=noise_scale, fitness_distribution=noise_distribution
+    )
+
+    def get_fitness(gene):
+        return additive_landscape(gene) + noise_landscape(gene)
+
+    return jax.jit(get_fitness)
+
+
+def build_stochastic_block_landscape_function(
+    rng, N, num_blocks=1, fitness_distribution=jr.normal
+):
+    """
+    Looks up fitness values on a Stochastic Block Model landscape.
+    This is similar to an NK landscape, but with disjoint blocks of interacting sites.
+    For this particular model, each site is assigned to a random block, meaning block sizes vary stochastically.
+    This is to allow for num_blocks not dividing N evenly.
+
+    Parameters:
+    - rng: Jax random number key (e.g jax.random.PRNGKey(0)).
+    - N: integer value representing number of sites in the gene.
+    - num_blocks: Number of blocks in the stochastic block model.
+    - fitness_distribution: Distribution from which individual fitness values are sampled.
+
+    Returns:
+    - Function that takes gene sequence as input, and returns fitness value.
+    """
+
+    r1, r2, r3 = jr.split(rng, 3)
+
+    ##################################
+    ## Generate interaction matrix. ##
+    ##################################
+
+    interaction_matrix = jnp.zeros((num_blocks, N), dtype=jnp.uint32)
+    block_assignments = jr.randint(r1, (N,), 0, num_blocks)
+    interaction_matrix = interaction_matrix.at[block_assignments, jnp.arange(N)].set(1)
+
+    ##########################################
+    ## Build function for sampling from SBM. ##
+    ##########################################
+
+    # Function for generating rng keys, ensuring that they are derived from the same base rng.
+    vector_foldin = jax.vmap(lambda base_rng, data: jr.fold_in(base_rng, data))
+
+    fitness_distribution = jax.vmap(fitness_distribution)
+
+    def get_fitness(gene):
+        individual_site_fitness = vector_foldin(jr.split(r2, N), gene)
+        interaction_fitness = (interaction_matrix @ individual_site_fitness) + jr.split(
+            r3, num_blocks
+        )
+        return jnp.sum(fitness_distribution(interaction_fitness))
+
+    return jax.jit(jax.vmap(get_fitness))
+
