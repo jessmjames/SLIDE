@@ -46,6 +46,7 @@ LANDSCAPE_FILES: dict[str, str] = {
 
 MUTATION_MATRIX_FILES: dict[str, str | None] = {
     "nuc_uniform": None,
+    "nuc_e_coli_weighted": "normed_e_coli_matrix.npy",
     "nuc_e_coli_directed": "normed_e_coli_matrix.npy",
     "nuc_a_thaliana_directed": "normed_a_thaliana_matrix.npy",
     "nuc_human_directed": "normed_human_codon_matrix.npy",
@@ -138,6 +139,8 @@ def load_mutation_matrix(model_name: str) -> np.ndarray | None:
     if matrix_file is None:
         return None
     matrix = np.asarray(np.load(REPO_ROOT / "other_data" / matrix_file), dtype=np.float64)
+    if model_name == "nuc_e_coli_weighted":
+        matrix = symmetric_sinkhorn_kernel(matrix)
     if matrix.shape != (4, 4):
         raise ValueError(f"{model_name} matrix has shape {matrix.shape}, expected (4, 4).")
     if np.any(matrix < 0.0):
@@ -145,6 +148,33 @@ def load_mutation_matrix(model_name: str) -> np.ndarray | None:
     if not np.allclose(matrix.sum(axis=1), 1.0, atol=1e-10):
         raise ValueError(f"{model_name} matrix rows do not sum to 1.")
     return matrix
+
+
+def symmetric_sinkhorn_kernel(kernel: np.ndarray, tolerance: float = 1e-13) -> np.ndarray:
+    """Create a symmetric doubly-stochastic kernel by diagonal scaling.
+
+    Parameters
+    ----------
+    kernel:
+        Non-negative square base kernel.
+    tolerance:
+        Maximum permitted row-sum error.
+
+    Returns
+    -------
+    np.ndarray
+        Symmetric doubly-stochastic kernel preserving the input zero pattern.
+    """
+    symmetric = 0.5 * (np.asarray(kernel, dtype=np.float64) + np.asarray(kernel, dtype=np.float64).T)
+    scale = np.ones(symmetric.shape[0], dtype=np.float64)
+    for _ in range(100_000):
+        row_sums = scale * (symmetric @ scale)
+        if np.max(np.abs(row_sums - 1.0)) < tolerance:
+            break
+        scale *= np.sqrt(1.0 / row_sums)
+    else:
+        raise RuntimeError("Symmetric Sinkhorn scaling did not converge.")
+    return scale[:, None] * symmetric * scale[None, :]
 
 
 def linear_ids_to_nucleotide_starts(linear_ids: np.ndarray, nucleotide_sites: int) -> np.ndarray:
@@ -493,7 +523,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--landscapes", default="pard3", help="Comma-separated landscape keys or 'all'.")
     parser.add_argument(
         "--models",
-        default="nuc_uniform,nuc_e_coli_directed,nuc_a_thaliana_directed,nuc_human_directed",
+        default="nuc_uniform,nuc_e_coli_weighted,nuc_e_coli_directed",
         help="Comma-separated mutation model keys.",
     )
     parser.add_argument("--output-dir", type=Path, default=get_raw_data_dir(), help="Output directory.")
