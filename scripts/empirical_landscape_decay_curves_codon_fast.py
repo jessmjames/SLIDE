@@ -1,5 +1,5 @@
 """
-Fast nucleotide-space decay curve generation for 4 mutation models.
+Fast nucleotide-space decay curve generation for three mutation models.
 
 All models operate in nucleotide (codon-triplet) space: each amino-acid site
 is represented as 3 nucleotides [U,C,A,G], so a 4-AA sequence → 12 nts,
@@ -10,10 +10,9 @@ The AA-uniform baseline (non-codon) is in empirical_landscape_decay_curves_all_s
 
 Mutation models (all 4-state nucleotide, A=4)
 ----------------------------------------------
-1. nuc_uniform     : uniform nucleotide mutations
-2. nuc_h_sapiens_sym : symmetric human nucleotide transition matrix
-3. nuc_h_sapiens   : asymmetric human nucleotide transition matrix
-4. nuc_e_coli      : asymmetric E. coli nucleotide transition matrix
+1. nuc_uniform          : uniform nucleotide mutations
+2. nuc_e_coli_weighted : symmetric Sinkhorn-scaled E. coli kernel
+3. nuc_e_coli_directed : original asymmetric E. coli kernel
 
 Mutation rate: m / n_nuc  (same expected mutations per sequence per step)
   GB1   (4 AA → 12 nt): 0.1/12 ≈ 0.0083 per nt site
@@ -61,7 +60,7 @@ SELECTED_MODELS = {
     name.strip()
     for name in os.environ.get(
         "SLIDE_MUTATION_MODELS",
-        "nuc_uniform,nuc_h_sapiens_sym,nuc_h_sapiens,nuc_e_coli",
+        "nuc_uniform,nuc_e_coli_weighted,nuc_e_coli_directed",
     ).split(",")
     if name.strip()
 }
@@ -96,7 +95,7 @@ def generate_decay_curve(
     fitness_function: Callable[[jax.Array], jax.Array],
     mutation_function: Callable[[jax.Array, jax.Array], jax.Array],
     p: int = 2500,
-    batch_size: int = 500,
+    batch_size: int = 50,
     num_steps: int = NUM_STEPS,
 ) -> np.ndarray:
     """
@@ -182,12 +181,42 @@ landscapes = {
 # ---------------------------------------------------------------------------
 
 print("Loading mutation matrices...")
-h_sapiens_raw = np.load(os.path.join(matrix_dir, 'normed_h_sapiens_matrix.npy'))
-e_coli_raw    = np.load(os.path.join(matrix_dir, 'normed_e_coli_matrix.npy'))
+e_coli_raw = np.load(os.path.join(matrix_dir, 'normed_e_coli_matrix.npy'))
 
-# Symmetric version: average with transpose, renormalise rows.
-h_sapiens_sym = (h_sapiens_raw + h_sapiens_raw.T) / 2
-h_sapiens_sym = h_sapiens_sym / h_sapiens_sym.sum(axis=1, keepdims=True)
+
+def symmetric_sinkhorn_kernel(
+    kernel: np.ndarray,
+    tolerance: float = 1e-13,
+) -> np.ndarray:
+    """Create a symmetric doubly-stochastic kernel by diagonal scaling.
+
+    Parameters:
+    - kernel: np.ndarray
+        Non-negative square base kernel.
+    - tolerance: float
+        Maximum permitted row-sum error.
+
+    Returns:
+    - np.ndarray
+        Symmetric doubly-stochastic kernel preserving the input zero pattern.
+    """
+    symmetric = 0.5 * (np.asarray(kernel, dtype=float) + np.asarray(kernel, dtype=float).T)
+    scale = np.ones(symmetric.shape[0], dtype=float)
+    for _ in range(100_000):
+        row_sums = scale * (symmetric @ scale)
+        if np.max(np.abs(row_sums - 1.0)) < tolerance:
+            break
+        scale *= np.sqrt(1.0 / row_sums)
+    else:
+        raise RuntimeError("Symmetric Sinkhorn scaling did not converge.")
+    return scale[:, None] * symmetric * scale[None, :]
+
+
+e_coli_weighted = symmetric_sinkhorn_kernel(e_coli_raw)
+if not np.allclose(e_coli_weighted, e_coli_weighted.T, atol=1e-12):
+    raise ValueError("Weighted E. coli kernel is not symmetric.")
+if not np.allclose(e_coli_weighted.sum(axis=1), 1.0, atol=1e-12):
+    raise ValueError("Weighted E. coli kernel is not row-stochastic.")
 
 # ---------------------------------------------------------------------------
 # Mutation models  (label, build_fn_kwargs)
@@ -197,10 +226,9 @@ h_sapiens_sym = h_sapiens_sym / h_sapiens_sym.sum(axis=1, keepdims=True)
 BASE_MUT_RATE = 0.1   # total expected mutations per sequence per step
 
 MUTATION_MODELS = [
-    ('nuc_uniform',      'uniform',  None),
-    ('nuc_h_sapiens_sym','custom',   h_sapiens_sym),
-    ('nuc_h_sapiens',    'custom',   h_sapiens_raw),
-    ('nuc_e_coli',       'custom',   e_coli_raw),
+    ('nuc_uniform',          'uniform', None),
+    ('nuc_e_coli_weighted', 'custom',  e_coli_weighted),
+    ('nuc_e_coli_directed', 'custom',  e_coli_raw),
 ]
 
 # ---------------------------------------------------------------------------
@@ -243,7 +271,7 @@ for model_name, mut_type, mut_matrix in MUTATION_MODELS:
             fit_fn,
             mut_fn,
             p=population_size,
-            batch_size=500,
+            batch_size=50,
             num_steps=NUM_STEPS,
         )
 
