@@ -48,6 +48,7 @@ MUTATION_MATRIX_FILES: dict[str, str | None] = {
     "nuc_uniform": None,
     "nuc_e_coli_weighted": "normed_e_coli_matrix.npy",
     "nuc_e_coli_directed": "normed_e_coli_matrix.npy",
+    "nuc_a_thaliana_weighted": "normed_a_thaliana_matrix.npy",
     "nuc_a_thaliana_directed": "normed_a_thaliana_matrix.npy",
     "nuc_human_directed": "normed_human_codon_matrix.npy",
 }
@@ -139,7 +140,7 @@ def load_mutation_matrix(model_name: str) -> np.ndarray | None:
     if matrix_file is None:
         return None
     matrix = np.asarray(np.load(REPO_ROOT / "other_data" / matrix_file), dtype=np.float64)
-    if model_name == "nuc_e_coli_weighted":
+    if model_name in {"nuc_e_coli_weighted", "nuc_a_thaliana_weighted"}:
         matrix = symmetric_sinkhorn_kernel(matrix)
     if matrix.shape != (4, 4):
         raise ValueError(f"{model_name} matrix has shape {matrix.shape}, expected (4, 4).")
@@ -523,7 +524,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--landscapes", default="pard3", help="Comma-separated landscape keys or 'all'.")
     parser.add_argument(
         "--models",
-        default="nuc_uniform,nuc_e_coli_weighted,nuc_e_coli_directed",
+        default="nuc_uniform,nuc_e_coli_weighted,nuc_e_coli_directed,nuc_a_thaliana_weighted,nuc_a_thaliana_directed",
         help="Comma-separated mutation model keys.",
     )
     parser.add_argument("--output-dir", type=Path, default=get_raw_data_dir(), help="Output directory.")
