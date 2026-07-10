@@ -1,4 +1,4 @@
-"""Generate the raw-data products required by ``figure_5_new.ipynb``.
+"""Generate the raw-data products required by ``figure_5.ipynb``.
 
 The empirical directed-evolution panels use a single **best-variant trajectory sweep** per
 landscape, so the strategy-performance heat map (final slice) and the directed-evolution
@@ -274,7 +274,7 @@ def _targets() -> dict[str, tuple]:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Generate raw-data products for ``figure_5_new.ipynb``.
+    """Generate raw-data products for ``figure_5.ipynb``.
 
     With no arguments, regenerates every missing product (idempotent: existing ones are skipped).
     ``--only`` restricts to named targets; ``--force`` regenerates even if present; ``--list``

@@ -47,9 +47,8 @@ Primary figure notebooks:
 
 - `figure_3.ipynb`
 - `figure_4.ipynb`
-- `figure_5_new.ipynb`
-- `figure_6_new_new.ipynb`
-- `figure_6_I.ipynb`
+- `figure_5.ipynb`
+- `figure_6.ipynb`
 - `figure_7.ipynb`
 
 Supplemental figure notebooks:
@@ -71,9 +70,8 @@ notebook flags such as `PLOT_ONLY`, `OVERWRITE_RAW_PKL`, and
 SLIDE/
 ├── figure_3.ipynb                 # Primary figure notebook
 ├── figure_4.ipynb                 # Primary figure notebook
-├── figure_5_new.ipynb             # Primary Figure 5 notebook; saves figure_5*
-├── figure_6_new_new.ipynb         # Primary Figure 6 notebook
-├── figure_6_I.ipynb               # Figure 6I modularity notebook
+├── figure_5.ipynb                 # Primary Figure 5 notebook; saves figure_5*
+├── figure_6.ipynb                 # Primary Figure 6 notebook
 ├── figure_7.ipynb                 # Primary Figure 7 notebook
 ├── figure_S2.ipynb                # Supplemental figure notebook
 ├── figure_S3.ipynb                # Supplemental figure notebook
