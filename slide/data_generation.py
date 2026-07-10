@@ -1,8 +1,8 @@
-"""Reusable raw-data generation helpers for the SLIDE notebook pipeline.
+"""Reusable raw-data generation helpers for the SLIDE figure notebooks.
 
-The executable orchestration lives in ``data_generation.ipynb``. This module
-keeps reusable simulation kernels, start samplers, product filename constants,
-and small registry helpers used by that notebook and by ``data_processing.ipynb``.
+This module keeps simulation kernels, start samplers, product filename constants,
+and small registry helpers used by the active figure notebooks and retained
+generation scripts.
 """
 
 from __future__ import annotations

@@ -1,9 +1,8 @@
-"""Generate the raw-data products required by ``figure_5.ipynb``.
+"""Generate the raw-data products required by ``figure_5_new.ipynb``.
 
-This mirrors the Figure-5 generation of ``data_generation.ipynb`` but with one key change:
-the empirical directed-evolution panels use a single **best-variant trajectory sweep** per
+The empirical directed-evolution panels use a single **best-variant trajectory sweep** per
 landscape, so the strategy-performance heat map (final slice) and the directed-evolution
-lines (selected cells) are two views of the *same* simulation — guaranteeing they agree.
+lines (selected cells) are two views of the same simulation, guaranteeing they agree.
 
 Shared parameters for the empirical DE panels (heat map AND lines use these identical values):
   generations = 150, popsize = 1200, per-site mutation = 0.01, best-variant (max) metric.
@@ -275,7 +274,7 @@ def _targets() -> dict[str, tuple]:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Generate raw-data products for ``figure_5.ipynb`` — all of them, or a chosen subset.
+    """Generate raw-data products for ``figure_5_new.ipynb``.
 
     With no arguments, regenerates every missing product (idempotent: existing ones are skipped).
     ``--only`` restricts to named targets; ``--force`` regenerates even if present; ``--list``

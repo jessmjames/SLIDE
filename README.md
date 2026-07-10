@@ -40,42 +40,58 @@ JAX is included in both environment files. `environment.yml` installs a CUDA-ena
 
 ## Instructions
 
-The refactored pipeline is notebook-driven. Run the notebooks from the repository root in this order:
+The analysis is figure-notebook driven. Run notebooks from the repository root so
+their relative script paths and data-directory helpers resolve correctly.
 
-1. `data_generation.ipynb`
-   - Generates raw simulation products.
-   - Creates `raw_data/` if needed.
+Primary figure notebooks:
 
-2. `data_processing.ipynb`
-   - Processes raw products from `raw_data/` into plotting inputs.
-   - Creates `processed_data/` if needed.
+- `figure_3.ipynb`
+- `figure_4.ipynb`
+- `figure_5_new.ipynb`
+- `figure_6_new_new.ipynb`
+- `figure_6_I.ipynb`
+- `figure_7.ipynb`
 
-3. `data_visualisation.ipynb`
-   - Loads plotting inputs from `processed_data/`.
-   - Saves figures into `figures/pdf/`, `figures/eps/`, and `figures/png/`.
+Supplemental figure notebooks:
+
+- `figure_S2.ipynb`
+- `figure_S3.ipynb`
+- `figure_S4.ipynb`
+
+Each figure notebook owns its raw-data checks, processing, and plotting. Set the
+notebook flags such as `PLOT_ONLY`, `OVERWRITE_RAW_PKL`, and
+`OVERWRITE_PROCESSED_PKL` as needed before running. Raw products are stored in
+`raw_data/`, processed plotting inputs in `processed_data/`, and saved figures in
+`figures/{pdf,eps,png}/`.
 
 
 ## Repository Structure
 
 ```text
 SLIDE/
-├── data_generation.ipynb          # Generate raw simulation data into raw_data/
-├── data_processing.ipynb          # Process raw data into processed_data/
-├── data_visualisation.ipynb       # Create figures in figures/{pdf,eps,png}/
+├── figure_3.ipynb                 # Primary figure notebook
+├── figure_4.ipynb                 # Primary figure notebook
+├── figure_5_new.ipynb             # Primary Figure 5 notebook; saves figure_5*
+├── figure_6_new_new.ipynb         # Primary Figure 6 notebook
+├── figure_6_I.ipynb               # Figure 6I modularity notebook
+├── figure_7.ipynb                 # Primary Figure 7 notebook
+├── figure_S2.ipynb                # Supplemental figure notebook
+├── figure_S3.ipynb                # Supplemental figure notebook
+├── figure_S4.ipynb                # Supplemental figure notebook
 ├── environment.yml                # Conda/mamba environment definition for SLIDE_env
 ├── environment_cpu.yml            # CPU-only Conda/mamba environment definition for SLIDE_env_cpu
-├── slide/                         # Refactored reusable library code
-│   ├── data_generation.py         # Raw-data simulation and product registry
-│   ├── data_processing.py         # Processing helpers for plotting inputs
+├── scripts/                       # Long-running raw-data generators used by figures
+├── slide/                         # Reusable library code
+│   ├── data_generation.py         # Raw-data simulation and product registry helpers
 │   ├── direvo_functions.py        # Directed-evolution and diffusion routines
 │   ├── ruggedness_functions.py    # Ruggedness and spectral analysis helpers
 │   ├── selection_function_library.py
 │   └── utils.py                   # Paths, pickle I/O, filename and figure helpers
 ├── landscape_arrays/              # Empirical landscape arrays
 ├── other_data/                    # Small auxiliary data files
-├── raw_data/                      # Generated raw products; created by data_generation.ipynb
-├── processed_data/                # Generated plotting inputs; created by data_processing.ipynb
-├── figures/                       # Generated figures; created by data_visualisation.ipynb
+├── raw_data/                      # Generated raw products
+├── processed_data/                # Generated plotting inputs
+├── figures/                       # Generated figures
 └── README.md
 ```
 
