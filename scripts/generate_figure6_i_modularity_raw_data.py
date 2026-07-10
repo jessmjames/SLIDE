@@ -11,6 +11,7 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 import numpy as np
+import tqdm
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -296,25 +297,33 @@ def generate_raw(landscape_payload: dict[str, object], args: argparse.Namespace)
     simulation_seeds = np.empty(curve_shape[:-1], dtype=np.uint32)
     scaling = np.empty(curve_shape[:-1] + (5,), dtype=np.float64)
     all_ids = np.arange(NUM_ALLELES ** N_SITES, dtype=np.uint32)
-    for k_index, _ in enumerate(k_values):
-        for landscape_index in range(args.num_landscapes):
-            pair_index = k_index * args.num_landscapes + landscape_index
-            selection_seed = args.seed + 1_000_000 + pair_index
-            selection_seeds[k_index, landscape_index] = selection_seed
-            rng = np.random.default_rng(selection_seed)
-            selected_ids = rng.choice(all_ids, size=args.num_local_starts, replace=False).astype(np.uint32)
-            starts = linear_ids_to_starts(selected_ids, base[k_index, landscape_index].shape)
-            local_coordinates[k_index, landscape_index] = starts
-            for lambda_index, lambda_value in enumerate(lambdas):
-                modified, stats = modular_landscape(base[k_index, landscape_index], lambda_value)
-                simulation_seed = args.seed + 2_000_000 + pair_index * len(lambdas) + lambda_index
-                simulation_seeds[k_index, lambda_index, landscape_index] = simulation_seed
-                global_curve, local_curves = stochastic_curves(
-                    modified, starts, selected_ids, simulation_seed, args
-                )
-                global_values[k_index, lambda_index, landscape_index] = global_curve
-                local_values[k_index, lambda_index, landscape_index] = local_curves
-                scaling[k_index, lambda_index, landscape_index] = tuple(stats.values())
+    total_conditions = len(k_values) * args.num_landscapes * len(lambdas)
+    with tqdm.tqdm(total=total_conditions, desc="Figure 6I modularity", unit="condition") as progress:
+        for k_index, k_value in enumerate(k_values):
+            for landscape_index in range(args.num_landscapes):
+                pair_index = k_index * args.num_landscapes + landscape_index
+                selection_seed = args.seed + 1_000_000 + pair_index
+                selection_seeds[k_index, landscape_index] = selection_seed
+                rng = np.random.default_rng(selection_seed)
+                selected_ids = rng.choice(all_ids, size=args.num_local_starts, replace=False).astype(np.uint32)
+                starts = linear_ids_to_starts(selected_ids, base[k_index, landscape_index].shape)
+                local_coordinates[k_index, landscape_index] = starts
+                for lambda_index, lambda_value in enumerate(lambdas):
+                    progress.set_postfix_str(
+                        f"K={k_value}, landscape={landscape_index + 1}/{args.num_landscapes}, "
+                        f"lambda={lambda_value:.2f}",
+                        refresh=True,
+                    )
+                    modified, stats = modular_landscape(base[k_index, landscape_index], lambda_value)
+                    simulation_seed = args.seed + 2_000_000 + pair_index * len(lambdas) + lambda_index
+                    simulation_seeds[k_index, lambda_index, landscape_index] = simulation_seed
+                    global_curve, local_curves = stochastic_curves(
+                        modified, starts, selected_ids, simulation_seed, args
+                    )
+                    global_values[k_index, lambda_index, landscape_index] = global_curve
+                    local_values[k_index, lambda_index, landscape_index] = local_curves
+                    scaling[k_index, lambda_index, landscape_index] = tuple(stats.values())
+                    progress.update()
     if not np.isfinite(global_values).all() or not np.isfinite(local_values).all():
         raise FloatingPointError("Generated G_mu arrays contain non-finite values.")
     return {
