@@ -38,10 +38,35 @@ python -m ipykernel install --user --name SLIDE_env_cpu --display-name "Python (
 
 JAX is included in both environment files. `environment.yml` installs a CUDA-enabled JAX build, while `environment_cpu.yml` installs a CPU-only JAX build.
 
+## Data Download
+
+Download the cached raw simulation products and processed plotting inputs from
+the repository root with:
+
+```bash
+python slide/download_zenodo_data.py
+```
+
+The script downloads `raw_data.zip` and `processed_data.zip` from the configured
+public data URL and extracts them into `raw_data/` and `processed_data/`. If an
+extracted file already exists, the script asks before overwriting it. Pass
+`--force` to overwrite existing files without prompting:
+
+```bash
+python slide/download_zenodo_data.py --force
+```
+
+These cached products allow the figure notebooks to process or plot the paper
+figures without repeating the longest simulations. The notebooks can still
+generate missing products when their overwrite and plot-only settings permit it.
+
 ## Instructions
 
 The analysis is figure-notebook driven. Run notebooks from the repository root so
 their relative script paths and data-directory helpers resolve correctly.
+
+For an introductory example of generating mutation-only fitness decay and fitting
+local and global ruggedness estimates, run `slide_workflow.ipynb`.
 
 Primary figure notebooks:
 
@@ -68,9 +93,10 @@ notebook flags such as `PLOT_ONLY`, `OVERWRITE_RAW_PKL`, and
 
 ```text
 SLIDE/
+├── slide_workflow.ipynb           # Introductory SLIDE analysis workflow
 ├── figure_3.ipynb                 # Primary figure notebook
 ├── figure_4.ipynb                 # Primary figure notebook
-├── figure_5.ipynb                 # Primary Figure 5 notebook; saves figure_5*
+├── figure_5.ipynb                 # Primary Figure 5 notebook
 ├── figure_6.ipynb                 # Primary Figure 6 notebook
 ├── figure_7.ipynb                 # Primary Figure 7 notebook
 ├── figure_S2.ipynb                # Supplemental figure notebook
@@ -80,7 +106,7 @@ SLIDE/
 ├── environment_cpu.yml            # CPU-only Conda/mamba environment definition for SLIDE_env_cpu
 ├── scripts/                       # Long-running raw-data generators used by figures
 ├── slide/                         # Reusable library code
-│   ├── data_generation.py         # Raw-data simulation and product registry helpers
+│   ├── data_generation.py         # Raw-data simulation helpers
 │   ├── direvo_functions.py        # Directed-evolution and diffusion routines
 │   ├── ruggedness_functions.py    # Ruggedness and spectral analysis helpers
 │   ├── selection_function_library.py
