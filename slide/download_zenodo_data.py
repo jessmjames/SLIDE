@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Download and extract SLIDE raw and processed data from Zenodo.
 
-The current default targets the private Zenodo draft deposition used for testing.
-Pass an access token with ``--access-token`` or the ``ZENODO_ACCESS_TOKEN``
-environment variable. After publication, use ``--published`` or update the
-default mode/record ID.
+The default targets the published SLIDE dataset at Zenodo record 21282413.
+Draft depositions can still be accessed with ``--draft`` and an access token
+provided through ``--access-token`` or ``ZENODO_ACCESS_TOKEN``.
 """
 
 from __future__ import annotations
@@ -46,20 +45,29 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--record-id",
         default=DEFAULT_ZENODO_ID,
-        help="Zenodo record/deposition ID. Defaults to the current SLIDE draft.",
+        help="Zenodo record/deposition ID. Defaults to the published SLIDE dataset.",
     )
     parser.add_argument(
         "--access-token",
         default=os.getenv("ZENODO_ACCESS_TOKEN"),
         help=(
-            "Zenodo access token. Defaults to ZENODO_ACCESS_TOKEN. Required "
-            "for draft/private deposition downloads."
+            "Zenodo access token. Defaults to ZENODO_ACCESS_TOKEN and is only "
+            "required for draft/private deposition downloads."
         ),
     )
-    parser.add_argument(
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
         "--published",
+        dest="published",
         action="store_true",
-        help="Download from the public records endpoint instead of the draft API.",
+        default=True,
+        help="Download from the public records endpoint (default).",
+    )
+    mode_group.add_argument(
+        "--draft",
+        dest="published",
+        action="store_false",
+        help="Download from the private draft API; requires an access token.",
     )
     parser.add_argument(
         "-f",
