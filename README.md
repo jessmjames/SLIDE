@@ -140,4 +140,4 @@ Towers S, James J, Steel H, Kempf I (2026) Sequence-free landscape inference for
 }
 ```
 
-[Steel Lab Oxford](http://steel.ac/) | [Control Group](https://eng.ox.ac.uk/control)
+[Steel Lab Oxford](http://steel.ac/) | [Applied Control Laboratory](https://users.ox.ac.uk/~lady5906/) | [Control Group](https://eng.ox.ac.uk/control)
