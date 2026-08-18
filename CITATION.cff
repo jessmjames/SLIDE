@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+message: "If you use SLIDE in your research, please cite the paper below."
+
+title: "SLIDE"
+type: software
+
+authors:
+  - family-names: "Towers"
+    given-names: "Sebastian"
+
+  - family-names: "James"
+    given-names: "Jessica"
+
+  - family-names: "Steel"
+    given-names: "Harrison"
+
+  - family-names: "Kempf"
+    given-names: "Idris"
+
+repository-code: "https://github.com/Steel-Lab-Oxford/SLIDE"
+
+preferred-citation:
+  type: article
+  title: "Sequence-free landscape inference for directed evolution"
+
+  authors:
+    - family-names: "Towers"
+      given-names: "Sebastian"
+
+    - family-names: "James"
+      given-names: "Jessica"
+
+    - family-names: "Steel"
+      given-names: "Harrison"
+
+    - family-names: "Kempf"
+      given-names: "Idris"
+
+  journal: "PLOS Computational Biology"
+  year: 2026
